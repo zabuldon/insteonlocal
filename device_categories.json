@@ -22,5 +22,5 @@
   "14": { "type": "toy",           "name": "Toys" },
   "15": { "type": "time",          "name": "Timekeeping" },
   "16": { "type": "holiday",       "name": "Holiday" },
-  "FF": { "type": "Unassigned":    "name": "Unassigned" }
+  "FF": { "type": "Unassigned",    "name": "Unassigned" }
 }

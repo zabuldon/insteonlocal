@@ -148,7 +148,7 @@
   "03:06": { "sku": "2411R",       "key": "000016", "name": "IRLinc Receiver" },
   "03:07": { "sku": "2411T",       "key": "000017", "name": "IRLinc Transmitter" },
   "03:08": { "sku": "",            "key": "000018", "name": "SmartLabs Bi-Directional IR Insteon Interface" },
-  "03:09": { "sku": "2600RF",      "key": "000019", "name": "SmartLabs RF Developer’s Board" },
+  "03:09": { "sku": "2600RF",      "key": "000019", "name": "SmartLabs RF Developer's Board" },
   "03:0A": { "sku": "2410S",       "key": "00000D", "name": "SeriaLinc - Insteon to RS232" },
   "03:0B": { "sku": "2412U",       "key": "000030", "name": "PowerLinc USB Modem" },
   "03:0C": { "sku": "",            "key": "000031", "name": "SmartLabs PLM Alert Signal" },
@@ -176,8 +176,8 @@
   "03:23": { "sku": "2448A7H",     "key": "",       "name": "Portable USB Adapter for HouseLinc" },
   "03:24": { "sku": "2448A7T",     "key": "0000A2", "name": "TouchLinc" },
 
-  "03:27": { "sku": "2448A7T",     "key": "0000A2", "name": "TouchLinc" }.
-  "03:28": { "sku": "2413Gxx",     "key": "",       "name": "Global PLM, Dual Band (915 MHz)" },
+  "03:27": { "sku": "2448A7T",     "key": "0000A2", "name": "TouchLinc" },
+  "03:28": { "sku": "2413GXX",     "key": "",       "name": "Global PLM, Dual Band (915 MHz)" },
   "03:29": { "sku": "2413SAD",     "key": "",       "name": "PowerLinc Serial Modem (Dual Band) RF OFF, Auto Detect 128K" },
 
   "03:2B": { "sku": "2242-222",    "key": "",       "name": "Insteon Hub (915 MHz) - no RF" },

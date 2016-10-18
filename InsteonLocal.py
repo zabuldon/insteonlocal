@@ -1,5 +1,6 @@
 #from urllib import urlencode
-import requests, time, pprint, logging, logging.handlers, sys
+import requests, time, pprint, logging, logging.handlers, sys, json
+from collections import OrderedDict
 
 # todo
 # move switch to its own class?
@@ -37,6 +38,14 @@ class InsteonLocal(object):
         self.username = username
         self.password = password
         self.port = port
+
+        json_cats = open('device_categories.json')
+        json_cats_str = json_cats.read()
+        self.deviceCategories = json.loads(json_cats_str)
+
+        json_models = open('device_models.json')
+        json_models_str = json_models.read()
+        self.deviceModels = json.loads(json_models_str)
 
         self.hubUrl = 'http://' + self.ip + ':' + self.port
 
@@ -119,8 +128,10 @@ class InsteonLocal(object):
         return self.postDirectCommand(commandUrl)
 
 
+    # Get a list of all currently linked devices
     def getLinked(self):
         linkedDevices = {}
+        self.logger.info("\ngetLinked")
 
         #todo instead of sleep, create loop to keep checking buffer
         self.directCommandHub("0269")
@@ -129,7 +140,20 @@ class InsteonLocal(object):
         if (status['linkedDev'] == "000000"):
             self.logger.info("getLinked: No devices linked")
             return linkedDevices
-        self.logger.info("getLinked: Got first device: {} group {}".format(status['linkedDev'], status['linkedGroupNum']))
+
+        devCat = self.getDeviceCategory(status['linkedDevCat'])
+        if "name" in devCat:
+            devCatName = devCat["name"]
+            devCatType = devCat["type"]
+        else:
+            devCatName = "Unknown"
+            devCatType = "unknown"
+        linkedDevModel = self.getDeviceModel(status["linkedDevCat"], status["linkedDevSubcat"])
+        if "name" in linkedDevModel:
+            devModelName = linkedDevModel["name"]
+        else:
+            devModelName = "unknown"
+        self.logger.info("getLinked: Got first device: {} group {} cat type {} cat name {} dev model name {}".format(status['linkedDev'], status['linkedGroupNum'], devCatType, devCatName, devModelName))
         linkedDevices[status['linkedGroupNum']] = status['linkedDev']
 
         while (status['success']):
@@ -137,35 +161,72 @@ class InsteonLocal(object):
             time.sleep(1)
             status = self.getBufferStatus()
             if (status['linkedDev'] != "000000"):
-                self.logger.info("getLinked: Got device: {} group {}".format(status['linkedDev'], status['linkedGroupNum']))
+                devCat = self.getDeviceCategory(status['linkedDevCat'])
+                if "name" in devCat:
+                    devCatName = devCat["name"]
+                    devCatType = devCat["type"]
+                else:
+                    devCatName = "Unknown"
+                    devCatType = "unknown"
+                linkedDevModel = self.getDeviceModel(status["linkedDevCat"], status["linkedDevSubcat"])
+                if "name" in linkedDevModel:
+                    devModelName = linkedDevModel["name"]
+                else:
+                    devModelName = "unknown"
+                self.logger.info("getLinked: Got |device| {} |group| {} |cat type| {} |cat name| {} |dev model name| {}".format(status['linkedDev'], status['linkedGroupNum'], devCatType, devCatName, devModelName))
                 linkedDevices[status['linkedGroupNum']] = status['linkedDev']
 
         self.logger.info("getLinked: Final device list: {}".format(pprint.pformat(linkedDevices)))
         return linkedDevices
 
 
-    # Get the device for the ID
+    # Given the category id, return name and type for the caegory
+    def getDeviceCategory(self, cat):
+        if cat in self.deviceCategories:
+            return self.deviceCategories[cat]
+        else:
+            return false
+
+
+    # Return the model name given cat/subcat or product key
+    def getDeviceModel(self, cat, subCat, key=''):
+        if cat + ":" + subCat in self.deviceModels:
+            return self.deviceCategories[cat]
+        else:
+            for k,v in self.deviceModels.items():
+                if "key" in v:
+                    if v["key"] == key:
+                        return v
+            return false
+
+
+    # Get the device for the ID. ID request can return device type (cat/subcat), firmware ver, etc.
+    # cat is status['response2Cat'], sub cat is status['response2Subcat']
     def idRequest(self, deviceId):
-        self.logger.info("idRequest for device {}".format(deviceId))
+        self.logger.info("\nidRequest for device {}".format(deviceId))
         deviceId = deviceId.upper()
 
         self.directCommand(deviceId, "10", "00")
 
         time.sleep(2)
 
-        self.getBufferStatus()
+        status = self.getBufferStatus()
 
+        return status
 
-    # Do a separate query to get device status
+    # Do a separate query to get device status. This can tell if device is on/off, lighting level, etc.
+    # status['responseCmd2'] is lighting level
     def getDeviceStatus(self, deviceId):
-        self.logger.info("getDeviceStatus for device {}".format(deviceId))
+        self.logger.info("\ngetDeviceStatus for device {}".format(deviceId))
         deviceId = deviceId.upper()
 
         self.directCommand(deviceId, "19", "00")
 
         time.sleep(2)
 
-        self.getBufferStatus()
+        status = self.getBufferStatus()
+
+        return status
 
 
     # Main method to read from buffer
@@ -178,47 +239,113 @@ class InsteonLocal(object):
         responseText = responseText.replace('<response><BS>', '')
         responseText = responseText.replace('</BS></response>', '')
 
-        responseType = responseText[0:4];
+        responseStatus = OrderedDict()
 
-        if (responseType == '0262'):
+        responseType = responseText[0:4]
+
+        self.logger.info("getBufferStatus: Got Response type {} text of {}".format(responseType, responseText))
+
+        if (responseType == '0250'):
+            # TODO
+            self.logger.err("Not implemented handling 0250 standard message")
+        elif (responseType == '0251'):
+            # TODO
+            self.logger.err("Not implemented handling 0251 extended message")
+        elif (responseType == '0252'):
+            self.logger.err("Not implemented handling 0252 X10 message received")
+        elif (responseType == '0253'):
+            # TODO
+            self.logger.err("Not implemented handling 0251 extended message")
+        elif (responseType == '0254'):
+            # TODO
+            self.logger.err("Not implemented handling 0254 Button Event Report")
+            # next byte:
+            # 2 set button tapped
+            # 3 set button held
+            # 4 set button released after hold
+            # 12 button 2 tapped
+            # 13 button 2 held
+            # 14 button 2 released after hold
+            # 22 button 3 tapped
+            # 23 button 3 held
+            # 24 button 3 released after hold
+        elif (responseType == '0255'):
+            # TODO
+            self.logger.err("Not implemented handling 0255 User Reset - user pushed and held SET button on power up")
+        elif (responseType == '0256'):
+            # TODO
+            self.logger.err("Not implemented handling 0256 All-link cleanup failure")
+        elif (responseType == '0257'):
+            # TODO
+            self.logger.err("Not implemented handling 0257 All-link record response")
+        elif (responseType == '0258'):
+            # TODO
+            self.logger.err("Not implemented handling 0258 All-link cleanup status report")
+        elif (responseType == '0259'):
+            # TODO
+            self.logger.err("Not implemented handling 0259 database record found")
+        elif (responseType == '0261'):
+            # scene response
+            self.logger.info("Response type 0261 scene response")
+            responseStatus['error']            = True
+            responseStatus['success']          = False
+            responseStatus['message']          = ''
+            responseStatus['sendCmdType']      = responseText[0:4]
+            responseStatus['groupNum']         = responseText[4:6]
+            responseStatus['groupCmd']         = responseText[6:8] # 11 for on
+            responseStatus['groupCmdArg']      = responseText[8:10] # ????
+            responseStatus['ackorNak']         = responseText[10:12]
+
+        elif (responseType == '0262'):
+            self.logger.info("Response type 0262")
             # Pass through command to PLM
-            responseStatus = {
-                'error':            True,
-                'success':          False,
-                'message':          '',
-                'sendCmdType':      responseText[0:4], # direct vs scene,
-                'sendDevice':       responseText[4:10],
-                'sendCmdFlag':      responseText[10:12], # std vs extended
-                'sendCmd':          responseText[12:14],
-                'sendCmdArg':       responseText[14:16],
-                'ackorNak':         responseText[16:18], # 06 ok 15 error
-                'responseCmdStart': responseText[18:20],
-                'responseType':     responseText[20:22],
-                'responseDevice':   responseText[22:28],
-                'responseHub':      responseText[28:34],
-                'responseFlag':     responseText[34:35], # 2 for ack
-                'responseHopCt':    responseText[35:36], # hop count F, B, 7, or 3
-                'responseCmd1':     responseText[36:38], # database delta
-                'responseCmd2':     responseText[38:40] # brightness, etc.
-            }
-        elif ((responseType == '0269') or (responseType == '026A')):
-                # Response from getting devices from hub
-            responseStatus = {
-                'error':            True,
-                'success':          False,
-                'message':          '',
-                'sendCmd':          responseText[0:4], # 0269
-                'ackorNak':         responseText[4:6], # 06 ack 15 nak or empty
-                'responseCmd':      responseText[6:10], # 0257 all link record response
-                'responseFlags':    responseText[10:12], # 00-FF is controller...bitted for in use, master/slave, etc. See p44 of INSTEON Hub Developers Guide 20130618
-                'linkedGroupNum':   responseText[12:14],
-                'linkedDev':        responseText[14:20],
-                'linkedDevCat':     responseText[20:22], # 01 dimmer
-                'linkedDevSubcat':  responseText[22:24], # varies by device type
-                'linkedDevFirmVer': responseText[24:26], # varies by device type
-            }
+            responseStatus['error']            = True
+            responseStatus['success']          = False
+            responseStatus['message']          = ''
+            responseStatus['sendCmdType']      = responseText[0:4] # direct vs scene,
+            responseStatus['sendDevice']       = responseText[4:10]
+            responseStatus['sendCmdFlag']      = responseText[10:12] # std vs extended
+            responseStatus['sendCmd']          = responseText[12:14]
+            responseStatus['sendCmdArg']       = responseText[14:16]
+            responseStatus['ackorNak']         = responseText[16:18] # 06 ok 15 error
+            responseStatus['responseCmdStart'] = responseText[18:20]
+            responseStatus['responseType']     = responseText[20:22]
+            responseStatus['responseDevice']   = responseText[22:28]
+            responseStatus['responseHub']      = responseText[28:34]
+            responseStatus['responseFlag']     = responseText[34:35] # 2 for ack
+            responseStatus['responseHopCt']    = responseText[35:36] # hop count F, B, 7, or 3
+            responseStatus['responseCmd1']     = responseText[36:38] # database delta
+            responseStatus['responseCmd2']     = responseText[38:40] # brightness, etc.
 
-        if (not responseText) or (responseText == 0):
+            if ((len(responseText) > 40) and (responseText[40:44] != "0000") and (responseText[0:44] != "")):
+                # we have another message - like id response
+                responseStatus['response2Type']     = responseText[40:44]
+                responseStatus['response2Device']   = responseText[44:50]
+                responseStatus['response2Cat']      = responseText[50:52]
+                responseStatus['response2Subcat']   = responseText[52:54]
+                responseStatus['response2Firmware'] = responseText[54:56]
+                responseStatus['response2Flag']     = responseText[56:57]
+                responseStatus['response2HopCt']    = responseText[57:58]
+                responseStatus['response2Cmd1']     = responseText[58:60]
+                responseStatus['responseCmd2']      = responseText[60:62]
+
+        elif ((responseType == '0269') or (responseType == '026A')):
+            # Response from getting devices from hub
+            responseStatus['error']            = True
+            responseStatus['success']          = False
+            responseStatus['message']          = ''
+            responseStatus['sendCmd']          = responseText[0:4] # 0269
+            responseStatus['ackorNak']         = responseText[4:6] # 06 ack 15 nak or empty
+            responseStatus['responseCmd']      = responseText[6:10] # 0257 all link record response
+            responseStatus['responseFlags']    = responseText[10:12] # 00-FF is controller...bitted for in use, master/slave, etc. See p44 of INSTEON Hub Developers Guide 20130618
+            responseStatus['linkedGroupNum']   = responseText[12:14]
+            responseStatus['linkedDev']        = responseText[14:20]
+            responseStatus['linkedDevCat']     = responseText[20:22] # 01 dimmer
+            responseStatus['linkedDevSubcat']  = responseText[22:24] # varies by device type
+            responseStatus['linkedDevFirmVer'] = responseText[24:26] # varies by device type
+
+        pprint.pprint(responseStatus)
+        if ((not responseText) or (responseText == 0) or (responseType == "0000")):
             responseStatus['error'] = True
             responseStatus['success'] = False
             responseStatus['message'] = 'Empty buffer'
@@ -230,7 +357,6 @@ class InsteonLocal(object):
             responseStatus['error'] = True
             responseStatus['message'] = 'Device returned nak'
 
-        self.logger.info("getBufferStatus: Got Response text of {}".format(responseText))
         self.logger.info("getBufferStatus: Received response of: {}".format(pprint.pformat(responseStatus)))
 
         # Best to clear it after reading it. It overwrites the buffer left
@@ -279,7 +405,7 @@ class InsteonLocal(object):
 
     # Enter linking mode for a group
     def enterLinkMode(self, groupNumber):
-        self.logger.info("enterLinkMode for group {}".format(groupNumber));
+        self.logger.info("\nenterLinkMode for group {}".format(groupNumber));
         self.directCommandShort('09' + groupNumber)
         # should send http://0.0.0.0/0?0901=I=0
 
@@ -290,7 +416,7 @@ class InsteonLocal(object):
 
     # Enter unlinking mode for a group
     def enterUnlinkMode(self, groupNumber):
-        self.logger.info("enterUnlinkMode for group {}".format(groupNumber));
+        self.logger.info("\nenterUnlinkMode for group {}".format(groupNumber));
         self.directCommandShort('0A' + groupNumber)
         # should send http://0.0.0.0/0?0A01=I=0
 
@@ -301,7 +427,7 @@ class InsteonLocal(object):
 
     # Cancel linking or unlinking mode
     def cancelLinkUnlinkMode(self):
-        self.logger.info("cancelLinkUnlinkMode");
+        self.logger.info("\ncancelLinkUnlinkMode");
         self.directCommandShort('08')
         # should send http://0.0.0.0/0?08=I=0
 
@@ -318,7 +444,7 @@ class InsteonLocal(object):
     #  03 as controller with im initiates all linking or as responder when another device initiates all linking
     #  FF deletes the all link
     def startAllLinking(self, linkType):
-        self.logger.info("startAllLinking for type " + linkType)
+        self.logger.info("\nstartAllLinking for type " + linkType)
         self.directCommandHub('0264' + linkType)
     # TODO: read response
 #    Byte Value Meaning
@@ -331,7 +457,7 @@ class InsteonLocal(object):
 
 
     def cancelAllLinking(self):
-        self.logger.info("cancelAllLinking")
+        self.logger.info("\ncancelAllLinking")
         self.directCommandHub('0265')
 ## TODO read response
     # 0x02 echoed start of command
@@ -343,26 +469,33 @@ class InsteonLocal(object):
 
     # Turn group on
     def groupOn(self, groupNum):
-        self.logger.info("groupOn: group {}".format(groupNum))
+        self.logger.info("\ngroupOn: group {}".format(groupNum))
         self.sceneCommand(groupNum, "11")
-        success = self.checkSuccess(deviceId, level)
+
+        time.sleep(2)
+        status = self.getBufferStatus()
+
+        #success = self.checkSuccess(deviceId, level)
         ### Todo - probably can't check this way, need to do a clean up and check status of each one, etc.
-        if (success):
-            self.logger.info("groupOn: Group turned on successfully")
-        else:
-            self.logger.error("groupOn: Group did not turn on")
+        #if (success):
+        #    self.logger.info("groupOn: Group turned on successfully")
+        #else:
+        #    self.logger.error("groupOn: Group did not turn on")
 
 
     # Turn group off
     def groupOff(self, groupNum):
-        self.logger.info("groupOff: group {}".format(groupNum))
-        self.sceneCommand(groupNum, "31")
-        success = self.checkSuccess(deviceId, level)
+        self.logger.info("\ngroupOff: group {}".format(groupNum))
+        self.sceneCommand(groupNum, "13")
+
+        time.sleep(2)
+        status = self.getBufferStatus()
+        #success = self.checkSuccess(deviceId, level)
         ### Todo - probably can't check this way, need to do a clean up and check status of each one, etc.
-        if (success):
-            self.logger.info("groupOff: Group turned off successfully")
-        else:
-            self.logger.error("groupOff: Group did not turn off")
+        #if (success):
+        #    self.logger.info("groupOff: Group turned off successfully")
+        #else:
+        #    self.logger.error("groupOff: Group did not turn off")
 
 
 
@@ -374,7 +507,7 @@ class InsteonLocal(object):
     def lightOn(self, deviceId, level, fast=0):
         deviceId = deviceId.upper()
 
-        self.logger.info("lightOn: device {} level {} fast {}".format(deviceId, level, fast))
+        self.logger.info("\nlightOn: device {} level {} fast {}".format(deviceId, level, fast))
 
         if fast:
             self.directCommand(deviceId, "12", level)
@@ -393,7 +526,7 @@ class InsteonLocal(object):
     def lightOff(self, deviceId, fast=0):
         deviceId = deviceId.upper()
 
-        self.logger.info("lightOff: device {} fast {}".format(deviceId, fast))
+        self.logger.info("\nlightOff: device {} fast {}".format(deviceId, fast))
 
         if fast:
             self.directCommand(deviceId, "14", '00')
@@ -412,7 +545,7 @@ class InsteonLocal(object):
     def lightLevel(self, deviceId, level):
         deviceId = deviceId.upper()
 
-        self.logger.info("lightLevel: device {} level {}".format(deviceId, level))
+        self.logger.info("\nlightLevel: device {} level {}".format(deviceId, level))
 
         self.directCommand(deviceId, "21", level)
         success = self.checkSuccess(deviceId, level)
@@ -427,7 +560,7 @@ class InsteonLocal(object):
     def lightBrightenStep(self, deviceId):
         deviceId = deviceId.upper()
 
-        self.logger.info("lightBrightenStep: device{}".format(deviceId))
+        self.logger.info("\nlightBrightenStep: device{}".format(deviceId))
 
         self.directCommand(deviceId, "15", "00")
         success = self.checkSuccess(deviceId, level)
@@ -441,7 +574,7 @@ class InsteonLocal(object):
     def lightDimStep(self, deviceId):
         deviceId = deviceId.upper()
 
-        self.logger.info("lightDimStep: device{}".format(deviceId))
+        self.logger.info("\nlightDimStep: device{}".format(deviceId))
 
         self.directCommand(deviceId, "16", "00")
         success = self.checkSuccess(deviceId, level)

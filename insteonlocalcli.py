@@ -1,5 +1,6 @@
 #!/Users/mlong/hassdev/bin/python3.5
 import time
+import pprint
 from InsteonLocal import InsteonLocal
 #import InsteonLocal
 insteonLocal = InsteonLocal('192.168.1.160', 'Monaster', 'dtix6Fqs', '25105', '/tmp/insteonlocal.log', True)
@@ -15,10 +16,20 @@ insteonLocal = InsteonLocal('192.168.1.160', 'Monaster', 'dtix6Fqs', '25105', '/
 #time.sleep(3)
 #insteonLocal.lightOff('42902e', 100, 0)
 
+
+#insteonLocal.lightOff('42902e', 0)
+
+#insteonLocal.getLinked()
+
+#insteonLocal.idRequest('42902e')
+
 #insteonLocal.getDeviceStatus('42902e')
 
-insteonLocal.lightOff('42902e', 0)
+#modelInfo = insteonLocal.getDeviceCategory("00")
+#if ("name" in modelInfo):
+#    print("Got name of " + modelInfo["name"])
+#pprint.pprint(modelInfo)
 
-insteonLocal.getLinked()
-
-insteonLocal.idRequest('42902e')
+insteonLocal.groupOn("2")
+time.sleep(2)
+insteonLocal.groupOff("2")

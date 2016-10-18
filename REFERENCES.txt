@@ -1,0 +1,17 @@
+The following resources were used for inspiration or reference:
+
+https://blog.automategreen.com/post/under-the-insteon-hub-hood/
+https://blog.automategreen.com/post/insteon-hub-switch-control/
+https://github.com/automategreen/home-controller
+
+https://github.com/rgusick/InsteonHub/blob/master/insteon/insteon_hub.py
+
+http://forum.smarthome.com/topic.asp?TOPIC_ID=13762
+
+http://forum.smarthome.com/topic.asp?TOPIC_ID=7597
+
+http://www.insteon.com/support-knowledgebase/2015/4/9/control-your-insteon-hub-from-your-android-wear-device-using-tasker
+
+http://cache.insteon.com/developer/2242-222dev-062013-en.pdf
+
+http://leftovercode.info/smartlinc.php
