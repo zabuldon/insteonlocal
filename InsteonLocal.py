@@ -2,6 +2,7 @@
 import requests, time, pprint, logging, logging.handlers, sys, json
 from collections import OrderedDict
 
+
 # todo
 # move switch to its own class?
 # error handling
@@ -31,7 +32,7 @@ from collections import OrderedDict
 # other devices
 # allow setting operating flags (program lock, led off, beeper off)
 
-class InsteonLocal(object):
+class Hub(object):
 
     def __init__(self, ip, username, password, port="25105", logfile="/tmp/insteonlocal.log", consoleLog = False):
         self.ip = ip
@@ -105,12 +106,7 @@ class InsteonLocal(object):
         return self.postDirectCommand(commandUrl)
 
 
-    # Wrapper to send posted scene command and get response
-    def sceneCommand(self, groupNum, command):
-        self.logger.info("sceneCommand: Group {} Command {}".format(groupNum, command))
- #       levelHex = self.brightnessToHex(level)
-        commandUrl = self.hubUrl + '/0?' + command + groupNum + "=I=0"
-        return self.postDirectCommand(commandUrl)
+
 
 
     # Direct hub command
@@ -180,7 +176,7 @@ class InsteonLocal(object):
         return linkedDevices
 
 
-    # Given the category id, return name and type for the caegory
+    # Given the category id, return name and type for the category
     def getDeviceCategory(self, cat):
         if cat in self.deviceCategories:
             return self.deviceCategories[cat]
@@ -216,11 +212,19 @@ class InsteonLocal(object):
 
     # Do a separate query to get device status. This can tell if device is on/off, lighting level, etc.
     # status['responseCmd2'] is lighting level
-    def getDeviceStatus(self, deviceId):
+    # responseCmd1 contains All-Link Database delta
+    # if returnLED = 0. returns light level in responseCmd2
+    # if returnLED = 1, returns LED Bit Flags in responseCmd1
+
+    def getDeviceStatus(self, deviceId, returnLED=0):
         self.logger.info("\ngetDeviceStatus for device {}".format(deviceId))
         deviceId = deviceId.upper()
 
-        self.directCommand(deviceId, "19", "00")
+        if (returnLED == 1):
+            level = "01"
+        else:
+            level = "00"
+        self.directCommand(deviceId, "19", level)
 
         time.sleep(2)
 
@@ -246,19 +250,28 @@ class InsteonLocal(object):
         self.logger.info("getBufferStatus: Got Response type {} text of {}".format(responseType, responseText))
 
         if (responseType == '0250'):
-            # TODO
-            self.logger.err("Not implemented handling 0250 standard message")
+            self.logger.info("Response type 0250 standard message")
+            responseStatus['error']            = True
+            responseStatus['success']          = False
+            responseStatus['message']          = ''
+            responseStatus['responseType']      = responseText[0:4]
+            responseStatus['responseDevice']       = responseText[4:10]
+            responseStatus['responseHub']      = responseText[10:16]
+            responseStatus['responseFlag']     = responseText[16:17] # 2 for ack
+            responseStatus['responseHopCt']    = responseText[17:18] # hop count F, B, 7, or 3
+            responseStatus['responseCmd1']     = responseText[18:20] # cmd 1
+            responseStatus['responseCmd2']     = responseText[20:22] # brightness, etc.
         elif (responseType == '0251'):
             # TODO
-            self.logger.err("Not implemented handling 0251 extended message")
+            self.logger.error("Not implemented handling 0251 extended message")
         elif (responseType == '0252'):
-            self.logger.err("Not implemented handling 0252 X10 message received")
+            self.logger.error("Not implemented handling 0252 X10 message received")
         elif (responseType == '0253'):
             # TODO
-            self.logger.err("Not implemented handling 0251 extended message")
+            self.logger.error("Not implemented handling 0251 extended message")
         elif (responseType == '0254'):
             # TODO
-            self.logger.err("Not implemented handling 0254 Button Event Report")
+            self.logger.error("Not implemented handling 0254 Button Event Report")
             # next byte:
             # 2 set button tapped
             # 3 set button held
@@ -271,45 +284,44 @@ class InsteonLocal(object):
             # 24 button 3 released after hold
         elif (responseType == '0255'):
             # TODO
-            self.logger.err("Not implemented handling 0255 User Reset - user pushed and held SET button on power up")
+            self.logger.error("Not implemented handling 0255 User Reset - user pushed and held SET button on power up")
         elif (responseType == '0256'):
             # TODO
-            self.logger.err("Not implemented handling 0256 All-link cleanup failure")
+            self.logger.error("Not implemented handling 0256 All-link cleanup failure")
         elif (responseType == '0257'):
             # TODO
-            self.logger.err("Not implemented handling 0257 All-link record response")
+            self.logger.error("Not implemented handling 0257 All-link record response")
         elif (responseType == '0258'):
             # TODO
-            self.logger.err("Not implemented handling 0258 All-link cleanup status report")
+            self.logger.error("Not implemented handling 0258 All-link cleanup status report")
         elif (responseType == '0259'):
             # TODO
-            self.logger.err("Not implemented handling 0259 database record found")
+            self.logger.error("Not implemented handling 0259 database record found")
         elif (responseType == '0261'):
             # scene response
             self.logger.info("Response type 0261 scene response")
             responseStatus['error']            = True
             responseStatus['success']          = False
             responseStatus['message']          = ''
-            responseStatus['sendCmdType']      = responseText[0:4]
+            responseStatus['responseType']      = responseText[0:4]
             responseStatus['groupNum']         = responseText[4:6]
             responseStatus['groupCmd']         = responseText[6:8] # 11 for on
             responseStatus['groupCmdArg']      = responseText[8:10] # ????
             responseStatus['ackorNak']         = responseText[10:12]
 
         elif (responseType == '0262'):
-            self.logger.info("Response type 0262")
+            self.logger.info("Response type 0262 (cmd sent from host) received {}".format(responseText[18:22]))
             # Pass through command to PLM
             responseStatus['error']            = True
             responseStatus['success']          = False
             responseStatus['message']          = ''
-            responseStatus['sendCmdType']      = responseText[0:4] # direct vs scene,
+            responseStatus['sendResponseType']      = responseText[0:4] # direct vs scene,
             responseStatus['sendDevice']       = responseText[4:10]
             responseStatus['sendCmdFlag']      = responseText[10:12] # std vs extended
             responseStatus['sendCmd']          = responseText[12:14]
             responseStatus['sendCmdArg']       = responseText[14:16]
             responseStatus['ackorNak']         = responseText[16:18] # 06 ok 15 error
-            responseStatus['responseCmdStart'] = responseText[18:20]
-            responseStatus['responseType']     = responseText[20:22]
+            responseStatus['responseType']     = responseText[18:22]
             responseStatus['responseDevice']   = responseText[22:28]
             responseStatus['responseHub']      = responseText[28:34]
             responseStatus['responseFlag']     = responseText[34:35] # 2 for ack
@@ -344,18 +356,20 @@ class InsteonLocal(object):
             responseStatus['linkedDevSubcat']  = responseText[22:24] # varies by device type
             responseStatus['linkedDevFirmVer'] = responseText[24:26] # varies by device type
 
-        pprint.pprint(responseStatus)
         if ((not responseText) or (responseText == 0) or (responseType == "0000")):
             responseStatus['error'] = True
             responseStatus['success'] = False
             responseStatus['message'] = 'Empty buffer'
-        elif (responseStatus['ackorNak'] == '06'):
+        elif (responseStatus.get('ackorNak', '') == '06'):
             responseStatus['success'] = True
             responseStatus['error'] = False
-        elif (responseStatus['ackorNak'] == '15'):
+        elif (responseStatus.get('ackorNak', '') == '15'):
             responseStatus['success'] = False
             responseStatus['error'] = True
             responseStatus['message'] = 'Device returned nak'
+        elif (responseStatus.get('responseFlag', '') == '2'):
+            responseStatus['success'] = True
+            responseStatus['error'] = False
 
         self.logger.info("getBufferStatus: Received response of: {}".format(pprint.pformat(responseStatus)))
 
@@ -377,7 +391,7 @@ class InsteonLocal(object):
         statusDevice = status.get("responseDevice", "")
         statusCmdArg = status.get("responseCmd2", "")
         statusSuccess = status.get("success", False)
-        self.logger.info('checkSuccess: Got status {}'.format(pprint.pformat(status)))
+        #self.logger.info('checkSuccess: Got status {}'.format(pprint.pformat(status)))
         self.logger.info('checkSuccess: Response device {} cmd {}'.format(statusDevice, statusCmdArg))
         if ((statusDevice == deviceId) and statusSuccess
             and (statusCmdArg == self.brightnessToHex(level))):
@@ -465,15 +479,37 @@ class InsteonLocal(object):
     # ack 06 or nak 15
 
 
+    def group(self, groupId):
+        groupObj = Group(self, groupId)
+        return groupObj
+
+    def dimmer(self, deviceId):
+        dimmerObj = Dimmer(self, deviceId)
+        return dimmerObj
+
+    def switch(self, deviceId):
+        switchObj = Switch(self, deviceId)
+        return switchObj
+
+
+
+
+class Group():
+
+    def __init__(self, hub, groupId):
+        self.groupId = groupId
+        self.hub = hub
+        self.logger = hub.logger
+
     ### Group Lighting Functions - note, groups cannot be dimmed. They can be linked in dimmed mode.
 
     # Turn group on
-    def groupOn(self, groupNum):
-        self.logger.info("\ngroupOn: group {}".format(groupNum))
-        self.sceneCommand(groupNum, "11")
+    def on(self):
+        self.logger.info("\ngroupOn: group {}".format(self.groupId))
+        self.sceneCommand('11')
 
         time.sleep(2)
-        status = self.getBufferStatus()
+        status = self.hub.getBufferStatus()
 
         #success = self.checkSuccess(deviceId, level)
         ### Todo - probably can't check this way, need to do a clean up and check status of each one, etc.
@@ -484,12 +520,12 @@ class InsteonLocal(object):
 
 
     # Turn group off
-    def groupOff(self, groupNum):
-        self.logger.info("\ngroupOff: group {}".format(groupNum))
-        self.sceneCommand(groupNum, "13")
+    def off(self):
+        self.logger.info("\ngroupOff: group {}".format(self.groupId))
+        self.sceneCommand('13')
 
         time.sleep(2)
-        status = self.getBufferStatus()
+        status = self.hub.getBufferStatus()
         #success = self.checkSuccess(deviceId, level)
         ### Todo - probably can't check this way, need to do a clean up and check status of each one, etc.
         #if (success):
@@ -498,88 +534,206 @@ class InsteonLocal(object):
         #    self.logger.error("groupOff: Group did not turn off")
 
 
+    # Wrapper to send posted scene command and get response
+    def sceneCommand(self, command):
+        self.logger.info("sceneCommand: Group {} Command {}".format(self.groupId, command))
+        commandUrl = self.hub.hubUrl + '/0?' + command + self.groupId + "=I=0"
+        return self.hub.postDirectCommand(commandUrl)
 
-    ### Lighting Functions
+
+
+class Switch():
+
+    def __init__(self, hub, deviceId):
+        self.deviceId = deviceId
+        self.hub = hub
+        self.logger = hub.logger
+
+
+    def status(self, returnLED = 0):
+        status = self.hub.getDeviceStatus(self.deviceId, returnLED)
+        self.logger.info("\nDimmer {} status: {}".format(self.deviceId, pprint.pformat(status)))
+        return status
 
 
     ## Turn light On
-    # fast seems to always do full brightness
-    def lightOn(self, deviceId, level, fast=0):
-        deviceId = deviceId.upper()
+    def on(self):
+        self.logger.info("\nSwitch {} on".format(self.deviceId))
 
-        self.logger.info("\nlightOn: device {} level {} fast {}".format(deviceId, level, fast))
+        self.hub.directCommand(self.deviceId, '11', '100')
 
-        if fast:
-            self.directCommand(deviceId, "12", level)
-        else:
-            self.directCommand(deviceId, "11", level)
+        success = self.hub.checkSuccess(self.deviceId, '100')
 
-        success = self.checkSuccess(deviceId, level)
         if (success):
-            self.logger.info("lightOn: Light turned on successfully")
+            self.logger.info("Switch {} on: Light turned on successfully".format(self.deviceId))
         else:
-            self.logger.error("lightOn: Light did not turn on")
+            self.logger.error("Switch {} on: Light did not turn on".format(self.deviceId))
+
+        return success
+
+
+    ## Turn light Off
+    def off(self):
+        self.logger.info("\nSwitch {} off".format(self.deviceId))
+
+        self.hub.directCommand(self.deviceId, '13', '100')
+
+        success = self.hub.checkSuccess(self.deviceId, '100')
+
+        if (success):
+            self.logger.info("Switch {} off: Light turned off successfully".format(self.deviceId))
+        else:
+            self.logger.error("Switch {} off: Light did not turn off".format(self.deviceId))
+
+        return success
+
+
+
+class Dimmer():
+
+    def __init__(self, hub, deviceId):
+        self.deviceId = deviceId.upper()
+        self.hub = hub
+        self.logger = hub.logger
+
+
+    def status(self, returnLED = 0):
+        status = self.hub.getDeviceStatus(self.deviceId, returnLED)
+        self.logger.info("\nDimmer {} status: {}".format(self.deviceId, pprint.pformat(status)))
+        return status
+
+
+    ## Turn light On at saved ramp rate
+    def on(self, level):
+        self.logger.info("\nDimmer {} on level {}".format(self.deviceId, level))
+
+        self.hub.directCommand(self.deviceId, '11', level)
+
+        success = self.hub.checkSuccess(self.deviceId, level)
+        if (success):
+            self.logger.info("Dimmer {} on: Light turned on successfully".format(self.deviceId))
+        else:
+            self.logger.error("Dimmer {} on: Light did not turn on".format(self.deviceId))
+
+        return success
+
+    ## Turn light On to Saved State - using "fast"
+    def onSaved(self):
+        self.logger.info("\nDimmer {} onSaved".format(self.deviceId))
+
+        self.hub.directCommand(self.deviceId, '12', '00')
+
+        success = self.hub.checkSuccess(self.deviceId, '00')
+        if (success):
+            self.logger.info("Dimmer {} onSaved: Light turned on successfully".format(self.deviceId))
+        else:
+            self.logger.error("Dimmer {} onSaved: Light did not turn on".format(self.deviceId))
+
+        return success
+
+
+    ## Turn Light Off at saved ramp rate
+    def off(self):
+        self.logger.info("\nDimmer {} off".format(self.deviceId))
+
+        self.hub.directCommand(self.deviceId, '13', '00')
+
+        success = self.hub.checkSuccess(self.deviceId, '00')
+        if (success):
+            self.logger.info("Dimmer {} off: Light turned off successfully".format(self.deviceId))
+        else:
+            self.logger.error("Dimmer {} off: Light did not turn off".format(self.deviceId))
+
+        return success
 
 
     ## Turn Light Off
-    # doesn't seem to be a speed difference with fast
-    def lightOff(self, deviceId, fast=0):
-        deviceId = deviceId.upper()
+    def offInstant(self):
+        self.logger.info("\nDimmer {} offInstant".format(self.deviceId))
 
-        self.logger.info("\nlightOff: device {} fast {}".format(deviceId, fast))
+        self.hub.directCommand(self.deviceId, '14', '00')
 
-        if fast:
-            self.directCommand(deviceId, "14", '00')
-        else:
-            self.directCommand(deviceId, "13", '00')
-
-        success = self.checkSuccess(deviceId, '00')
+        success = self.hub.checkSuccess(self.deviceId, '00')
         if (success):
-            self.logger.info("lightOff: Light turned off successfully")
+            self.logger.info("Dimmer {} offInstant: Light turned off successfully".format(self.deviceId))
         else:
-            self.logger.error("lightOff: Light did not turn off")
+            self.logger.error("Dimmer {} offInstant: Light did not turn off".format(self.deviceId))
 
+        return success
 
 
     ## Change light level
-    def lightLevel(self, deviceId, level):
-        deviceId = deviceId.upper()
+    def changeLevel(self, level):
+        self.logger.info("\nDimmer {} changeLevel: level {}".format(self.deviceId, level))
 
-        self.logger.info("\nlightLevel: device {} level {}".format(deviceId, level))
-
-        self.directCommand(deviceId, "21", level)
-        success = self.checkSuccess(deviceId, level)
+        self.hub.directCommand(self.deviceId, '21', level)
+        success = self.hub.checkSuccess(self.deviceId, level)
         if (success):
-            self.logger.info("lightLevel: Light level changed successfully")
+            self.logger.info("Dimmer {} changeLevel: Light level changed successfully".format(self.deviceId))
         else:
-            self.logger.error("lightLevel: Light level was not changed")
+            self.logger.error("Dimmer {} changeLevel: Light level was not changed".format(self.deviceId))
 
+        return success
 
 
     ## Brighten light by one step
-    def lightBrightenStep(self, deviceId):
-        deviceId = deviceId.upper()
+    def brightenStep(self):
+        self.logger.info("\nDimmer {} brightenStep".format(self.deviceId))
 
-        self.logger.info("\nlightBrightenStep: device{}".format(deviceId))
-
-        self.directCommand(deviceId, "15", "00")
-        success = self.checkSuccess(deviceId, level)
+        self.hub.directCommand(self.deviceId, '15', '00')
+        success = self.hub.checkSuccess(self.deviceId, '00')
         if (success):
-            self.logger.info("lightBrightenStep: Light brightened successfully")
+            self.logger.info("Dimmer {} brightenStep: Light brightened successfully".format(self.deviceId))
         else:
-            self.logger.error("lightBrightenStep: Light brightened failure")
+            self.logger.error("Dimmer {} brightenStep: Light brightened failure".format(self.deviceId))
 
 
     ## Dim light by one step
-    def lightDimStep(self, deviceId):
-        deviceId = deviceId.upper()
+    def dimStep(self):
+        self.logger.info("\nDimmer {} dimStep".format(self.deviceId))
 
-        self.logger.info("\nlightDimStep: device{}".format(deviceId))
-
-        self.directCommand(deviceId, "16", "00")
-        success = self.checkSuccess(deviceId, level)
+        self.hub.directCommand(self.deviceId, '16', '00')
+        success = self.hub.checkSuccess(self.deviceId, '00')
         if (success):
-            self.logger.info("lightDimStep: Light dimmed successfully")
+            self.logger.info("Dimmer {} dimStep: Light dimmed successfully".format(self.deviceId))
         else:
-            self.logger.error("lightDimStep: Light dim failure")
+            self.logger.error("Dimmer {} dimStep: Light dim failure".format(self.deviceId))
 
+
+    ## Start changing light level manually
+    ## Direction should be 'up' or 'down'
+    def startChange(self, direction):
+        self.logger.info("\nDimmer {} startChange: {}".format(self.deviceId, direction))
+
+        if (direction == 'up'):
+            level = '01'
+        elif (direction == 'down'):
+            level = '00'
+        else:
+            self.logger.error("\nDimmer {} startChange: {} is invalid, use up or down".format(self.deviceId, direction))
+            return false
+
+        self.hub.directCommand(self.deviceId, '17', level)
+
+        status = self.hub.getBufferStatus()
+
+        success = self.hub.checkSuccess(self.deviceId, level)
+        if (success):
+            self.logger.info("Dimmer {} startChange: Light started changing successfully".format(self.deviceId))
+        else:
+            self.logger.error("Dimmer {} startChange: Light did not change".format(self.deviceId))
+
+
+    ## Stop changing light level manually
+    def stopChange(self):
+        self.logger.info("\nDimmer {} stopChange".format(self.deviceId))
+
+        self.hub.directCommand(self.deviceId, '18', '00')
+
+        status = self.hub.getBufferStatus()
+
+        success = self.hub.checkSuccess(self.deviceId, '00')
+        if (success):
+            self.logger.info("Dimmer {} stopChange: Light stopped changing successfully".format(self.deviceId))
+        else:
+            self.logger.error("Dimmer {} stopChange: Light did not stop".format(self.deviceId))
