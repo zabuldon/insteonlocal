@@ -4,12 +4,13 @@ from collections import OrderedDict
 
 
 # todo
-# move switch to its own class?
 # error handling
 # buffer handling - handle broadcasts?
 # device list
 # linking
-# scenes
+# scenes - all-link?
+# double tap scenes
+# switch on updates/broadcasts
 # sprinkler
 # pool
 # leak detector
@@ -137,40 +138,85 @@ class Hub(object):
             self.logger.info("getLinked: No devices linked")
             return linkedDevices
 
-        devCat = self.getDeviceCategory(status['linkedDevCat'])
-        if "name" in devCat:
-            devCatName = devCat["name"]
-            devCatType = devCat["type"]
-        else:
-            devCatName = "Unknown"
-            devCatType = "unknown"
-        linkedDevModel = self.getDeviceModel(status["linkedDevCat"], status["linkedDevSubcat"])
-        if "name" in linkedDevModel:
-            devModelName = linkedDevModel["name"]
-        else:
-            devModelName = "unknown"
-        self.logger.info("getLinked: Got first device: {} group {} cat type {} cat name {} dev model name {}".format(status['linkedDev'], status['linkedGroupNum'], devCatType, devCatName, devModelName))
-        linkedDevices[status['linkedGroupNum']] = status['linkedDev']
+        if status['linkedDev'] not in linkedDevices:
+            devInfo = self.idRequest(status['linkedDev'])
+
+            devCat = devInfo.get("response2Cat", "")
+            devSubCat = devInfo.get("response2Subcat", "")
+            devCatRec = self.getDeviceCategory(devCat)
+            if devCatRec and "name" in devCatRec:
+                devCatName = devCatRec["name"]
+                devCatType = devCatRec["type"]
+            else:
+                devCatName = "Unknown"
+                devCatType = "unknown"
+            linkedDevModel = self.getDeviceModel(devCat, devSubCat)
+
+            if "name" in linkedDevModel:
+                devModelName = linkedDevModel["name"]
+            else:
+                devModelName = "unknown"
+
+            if "sku" in linkedDevModel:
+                devSku = linkedDevModel["sku"]
+            else:
+                devSku = "unknown"
+
+            self.logger.info("getLinked: Got first device: {} group {} cat type {} cat name {} dev model name {}".format(status['linkedDev'], status['linkedGroupNum'], devCatType, devCatName, devModelName))
+            linkedDev = status['linkedDev']
+            linkedDevices[linkedDev] = {
+                'catName': devCatName,
+                'catType': devCatType,
+                'modelName' : devModelName,
+                'cat': devCat,
+                'subCat': devSubCat,
+                'sku': devSku,
+                'group': []
+            }
+        linkedGroupNum = status['linkedGroupNum']
+        linkedDevices[linkedDev]['group'].append(linkedGroupNum)
 
         while (status['success']):
             self.directCommandHub("026A")
             time.sleep(1)
             status = self.getBufferStatus()
             if (status['linkedDev'] != "000000"):
-                devCat = self.getDeviceCategory(status['linkedDevCat'])
-                if "name" in devCat:
-                    devCatName = devCat["name"]
-                    devCatType = devCat["type"]
-                else:
-                    devCatName = "Unknown"
-                    devCatType = "unknown"
-                linkedDevModel = self.getDeviceModel(status["linkedDevCat"], status["linkedDevSubcat"])
-                if "name" in linkedDevModel:
-                    devModelName = linkedDevModel["name"]
-                else:
-                    devModelName = "unknown"
-                self.logger.info("getLinked: Got |device| {} |group| {} |cat type| {} |cat name| {} |dev model name| {}".format(status['linkedDev'], status['linkedGroupNum'], devCatType, devCatName, devModelName))
-                linkedDevices[status['linkedGroupNum']] = status['linkedDev']
+                if status['linkedDev'] not in linkedDevices:
+                    devInfo = self.idRequest(status['linkedDev'])
+                    devCat = devInfo.get("response2Cat", "")
+                    devSubCat = devInfo.get("response2Subcat", "")
+                    devCatRec = self.getDeviceCategory(devCat)
+                    if devCatRec and "name" in devCatRec:
+                        devCatName = devCatRec["name"]
+                        devCatType = devCatRec["type"]
+                    else:
+                        devCatName = "Unknown"
+                        devCatType = "unknown"
+
+                    linkedDevModel = self.getDeviceModel(devCat, devSubCat)
+                    if "name" in linkedDevModel:
+                        devModelName = linkedDevModel["name"]
+                    else:
+                        devModelName = "unknown"
+
+                    if "sku" in linkedDevModel:
+                        devSku = linkedDevModel["sku"]
+                    else:
+                        devSku = "unknown"
+                    self.logger.info("getLinked: Got |device| {} |group| {} |cat type| {} |cat name| {} |dev model name| {}".format(status['linkedDev'], status['linkedGroupNum'], devCatType, devCatName, devModelName))
+                linkedDev = status['linkedDev']
+                if linkedDev not in linkedDevices:
+                    linkedDevices[linkedDev] = {
+                        'catName': devCatName,
+                        'catType': devCatType,
+                        'modelName' : devModelName,
+                        'cat': devCat,
+                        'subCat': devSubCat,
+                        'sku': devSku,
+                        'group': []
+                    }
+                linkedGroupNum = status['linkedGroupNum']
+                linkedDevices[linkedDev]['group'].append(linkedGroupNum)
 
         self.logger.info("getLinked: Final device list: {}".format(pprint.pformat(linkedDevices)))
         return linkedDevices
@@ -181,19 +227,19 @@ class Hub(object):
         if cat in self.deviceCategories:
             return self.deviceCategories[cat]
         else:
-            return false
+            return False
 
 
     # Return the model name given cat/subcat or product key
     def getDeviceModel(self, cat, subCat, key=''):
         if cat + ":" + subCat in self.deviceModels:
-            return self.deviceCategories[cat]
+            return self.deviceModels[cat + ":" + subCat]
         else:
             for k,v in self.deviceModels.items():
                 if "key" in v:
                     if v["key"] == key:
                         return v
-            return false
+            return False
 
 
     # Get the device for the ID. ID request can return device type (cat/subcat), firmware ver, etc.
@@ -267,15 +313,27 @@ class Hub(object):
         elif (responseType == '0252'):
             self.logger.error("Not implemented handling 0252 X10 message received")
         elif (responseType == '0253'):
-            # TODO
-            self.logger.error("Not implemented handling 0251 extended message")
+            # TODO test
+            self.logger.info("Response type 0253 All Linking Completed")
+            responseStatus['error']            = True
+            responseStatus['success']          = False
+            responseStatus['message']          = ''
+            responseStatus['sendResponseType'] = responseText[0:4] # direct vs scene,
+            # imType = 00 responder 01 controller FF link deleted
+            responseStatus['imType']           = responseText[4:6]
+            responseStatus['groupId']          = responseText[6:8]
+            responseStatus['responseDevice']   = responseText[8:14]
+            responseStatus['deviceCat']        = responseText[14:16]
+            responseStatus['deviceSubcat']     = responseText[16:18]
+            responseStatus['firmware']         = responseText[18:20]
+
         elif (responseType == '0254'):
             # TODO
             self.logger.error("Not implemented handling 0254 Button Event Report")
             # next byte:
-            # 2 set button tapped
-            # 3 set button held
-            # 4 set button released after hold
+            # 02 set button tapped
+            # 03 set button held
+            # 04 set button released after hold
             # 12 button 2 tapped
             # 13 button 2 held
             # 14 button 2 released after hold
@@ -303,19 +361,19 @@ class Hub(object):
             responseStatus['error']            = True
             responseStatus['success']          = False
             responseStatus['message']          = ''
-            responseStatus['responseType']      = responseText[0:4]
+            responseStatus['responseType']     = responseText[0:4]
             responseStatus['groupNum']         = responseText[4:6]
             responseStatus['groupCmd']         = responseText[6:8] # 11 for on
             responseStatus['groupCmdArg']      = responseText[8:10] # ????
             responseStatus['ackorNak']         = responseText[10:12]
 
         elif (responseType == '0262'):
-            self.logger.info("Response type 0262 (cmd sent from host) received {}".format(responseText[18:22]))
+            self.logger.info("Response type 0262 (cmd sent from host) extended msg received {}".format(responseText[18:22]))
             # Pass through command to PLM
             responseStatus['error']            = True
             responseStatus['success']          = False
             responseStatus['message']          = ''
-            responseStatus['sendResponseType']      = responseText[0:4] # direct vs scene,
+            responseStatus['sendResponseType'] = responseText[0:4] # direct vs scene,
             responseStatus['sendDevice']       = responseText[4:10]
             responseStatus['sendCmdFlag']      = responseText[10:12] # std vs extended
             responseStatus['sendCmd']          = responseText[12:14]
@@ -352,9 +410,9 @@ class Hub(object):
             responseStatus['responseFlags']    = responseText[10:12] # 00-FF is controller...bitted for in use, master/slave, etc. See p44 of INSTEON Hub Developers Guide 20130618
             responseStatus['linkedGroupNum']   = responseText[12:14]
             responseStatus['linkedDev']        = responseText[14:20]
-            responseStatus['linkedDevCat']     = responseText[20:22] # 01 dimmer
-            responseStatus['linkedDevSubcat']  = responseText[22:24] # varies by device type
-            responseStatus['linkedDevFirmVer'] = responseText[24:26] # varies by device type
+            responseStatus['linkedData1']     = responseText[20:22] # 01 dimmer
+            responseStatus['linkedData2']  = responseText[22:24] # varies by device type
+            responseStatus['linkedData3'] = responseText[24:26] # varies by device type
 
         if ((not responseText) or (responseText == 0) or (responseType == "0000")):
             responseStatus['error'] = True
@@ -415,40 +473,6 @@ class Hub(object):
 
 ### TODO listen for linked page 35 http://cache.insteon.com/developer/2242-222dev-062013-en.pdf
 
-   ### Group Commands
-
-    # Enter linking mode for a group
-    def enterLinkMode(self, groupNumber):
-        self.logger.info("\nenterLinkMode for group {}".format(groupNumber));
-        self.directCommandShort('09' + groupNumber)
-        # should send http://0.0.0.0/0?0901=I=0
-
-        ## TODO check return status
-        status = self.getBufferStatus()
-        return status
-
-
-    # Enter unlinking mode for a group
-    def enterUnlinkMode(self, groupNumber):
-        self.logger.info("\nenterUnlinkMode for group {}".format(groupNumber));
-        self.directCommandShort('0A' + groupNumber)
-        # should send http://0.0.0.0/0?0A01=I=0
-
-        ## TODO check return status
-        status = self.getBufferStatus()
-        return status
-
-
-    # Cancel linking or unlinking mode
-    def cancelLinkUnlinkMode(self):
-        self.logger.info("\ncancelLinkUnlinkMode");
-        self.directCommandShort('08')
-        # should send http://0.0.0.0/0?08=I=0
-
-        ## TODO check return status
-        status = self.getBufferStatus()
-        return status
-
 
 
     ## Begin all linking
@@ -503,6 +527,7 @@ class Group():
 
     ### Group Lighting Functions - note, groups cannot be dimmed. They can be linked in dimmed mode.
 
+
     # Turn group on
     def on(self):
         self.logger.info("\ngroupOn: group {}".format(self.groupId))
@@ -539,6 +564,40 @@ class Group():
         self.logger.info("sceneCommand: Group {} Command {}".format(self.groupId, command))
         commandUrl = self.hub.hubUrl + '/0?' + command + self.groupId + "=I=0"
         return self.hub.postDirectCommand(commandUrl)
+
+
+    # Enter linking mode for a group
+    # Press and hold button on device after sending this command
+    def enterLinkMode(self):
+        self.logger.info("\nenterLinkMode Group {}".format(self.groupId));
+        self.hub.directCommandShort('09' + self.groupId)
+        # should send http://0.0.0.0/0?0901=I=0
+
+        ## TODO check return status
+        status = self.hub.getBufferStatus()
+        return status
+
+
+    # Enter unlinking mode for a group
+    def enterUnlinkMode(self,):
+        self.logger.info("\nenterUnlinkMode Group {}".format(self.groupId));
+        self.hub.directCommandShort('0A' + self.groupId)
+        # should send http://0.0.0.0/0?0A01=I=0
+
+        ## TODO check return status
+        status = self.hub.getBufferStatus()
+        return status
+
+
+    # Cancel linking or unlinking mode
+    def cancelLinkUnlinkMode(self):
+        self.logger.info("\ncancelLinkUnlinkMode");
+        self.hub.directCommandShort('08')
+        # should send http://0.0.0.0/0?08=I=0
+
+        ## TODO check return status
+        status = self.hub.getBufferStatus()
+        return status
 
 
 
@@ -711,7 +770,7 @@ class Dimmer():
             level = '00'
         else:
             self.logger.error("\nDimmer {} startChange: {} is invalid, use up or down".format(self.deviceId, direction))
-            return false
+            return False
 
         self.hub.directCommand(self.deviceId, '17', level)
 

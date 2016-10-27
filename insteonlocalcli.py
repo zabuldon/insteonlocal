@@ -6,7 +6,7 @@ from insteonlocal import Hub
 #from InsteonLocal.Switch import Switch
 hub = Hub('192.168.1.160', 'Monaster', 'dtix6Fqs', '25105', '/tmp/insteonlocal.log', True)
 
-#insteonLocal.getLinked()
+hub.getLinked()
 
 #insteonLocal.idRequest('42902e')
 
@@ -18,10 +18,10 @@ hub = Hub('192.168.1.160', 'Monaster', 'dtix6Fqs', '25105', '/tmp/insteonlocal.l
 #pprint.pprint(modelInfo)
 
 # Dimmer example
-dimmer1 = hub.dimmer('42902e')
-dimmer1.on(25)
-dimmer1.status(0)
-dimmer1.status(1)
+#dimmer1 = hub.dimmer('42902e')
+#dimmer1.on(25)
+#dimmer1.status(0)
+#dimmer1.status(1)
 #dimmer1.brightenStep()
 #dimmer1.brightenStep()
 #dimmer1.brightenStep()
@@ -42,7 +42,7 @@ dimmer1.status(1)
 #time.sleep(1)
 #dimmer1.stopChange()
 #time.sleep(2)
-dimmer1.offInstant()
+#dimmer1.offInstant()
 #time.sleep(1)
 #dimmer1.off()
 
