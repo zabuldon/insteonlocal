@@ -10,5 +10,8 @@ setup(name='insteonlocal',
       author='phareous',
       author_email='mplong@gmail.com',
       url='https://github.com/phareous/insteonlocal',
-      long_description=desc
+      long_description=desc,
+      data_files=[('', ['device_models.json', 'device_categories.json'])],
+      requires=['requests', 'time', 'pprint', 'logging', 'logging.handlers', 'sys', 'json', 'collections'],
+      provides=['insteonlocal']
       )
