@@ -44,7 +44,7 @@ Unsupported devices include (but aren't limited to):
 
 ## Functionality
 
-The library can currently:
+The library can currently do the following actions:
 
 * Switches: 
   * On
@@ -65,7 +65,7 @@ The library can currently:
   * On
   * Off
   
-For all devices, you can get the status of a device
+For all devices, you can get the status of a device with getStatus which will query the device and return the result
 
 You can request a list of all linked devices. For each device, it will also return the type of device 
 and the model. This is accomplished by using two files from this library, device_categories.json and device_models.json
@@ -74,9 +74,9 @@ and the model. This is accomplished by using two files from this library, device
 
 It is suggested to use the mobile Insteon App for features that are missing from the library:
 
-* You cannot link or unlink devices to your hub.
+* You cannot link or unlink devices to your hub
 
-* You cannot modify, create, or remote scenes/groups.
+* You cannot modify, create, or remove scenes/groups.
 
 * You cannot change settings (operating flags) on a device (ramp rate, led brightness, beep, etc.)
 
