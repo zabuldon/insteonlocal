@@ -1,2 +1,131 @@
-# insteonlocal
-Python library for controlling Insteon Hub locally
+**InsteonLocal**
+
+Python library for controlling Insteon Hub locally. This allows you to send direct commands to your Insteon Hub without having to go through the cloud, or obtain a developer API key 
+(which can be hard or impossible to get from Insteon)
+
+## Hubs
+
+This was developed and tested against the Insteon Hub 2245-222.
+
+It may work for the Insteon Hub 2242-222, SmartLinc 2414N, or other hub with a HTTP local API. However, it has not been tested with these hubs.
+
+## Devices
+
+This version of the library should work with Insteon dimmers and switches. It was developed against 
+2466SW ToggleLinc Relay (Swutch) and 2477D SwitchLinc Dual-Band Dimmer
+
+## Unsupported Devices
+
+At this time, only switches and dimmers are supported. 
+
+To add support for future devices, we will need donations of equipment, or for device owners to directly 
+contribute code.
+
+Unsupported devices include (but aren't limited to):
+
+* Keypads
+* Thermostats
+* Garage Door Interface
+* Leak Detector
+* Pool Devices
+* Open/Close Sensor
+* Door Sensor
+* Motion Sensor
+* Sprinkler Interfaces
+* Fan Controls
+* Smoke Bridge
+* I/O Module
+* Micro Dimmer
+* On/Off Micro
+* Open/Close Micro
+* Ballast Dimmer
+* In-line Dimmer
+* Mini Remote
+
+## Functionality
+
+The library can currently:
+
+* Switches: 
+  * On
+  * Off
+  * Beep
+* Dimmers:
+  * On (specified level)
+  * On (fast: saved level)
+  * Off
+  * Off instant
+  * Change level
+  * Brighten one step
+  * Dim one step
+  * Start changing (up or down)
+  * Stop changing (up or down)
+  * Beep 
+* Groups:
+  * On
+  * Off
+  
+For all devices, you can get the status of a device
+
+You can request a list of all linked devices. For each device, it will also return the type of device 
+and the model. This is accomplished by using two files from this library, device_categories.json and device_models.json
+
+## Missing Functionality
+
+It is suggested to use the mobile Insteon App for features that are missing from the library:
+
+* You cannot link or unlink devices to your hub.
+
+* You cannot modify, create, or remote scenes/groups.
+
+* You cannot change settings (operating flags) on a device (ramp rate, led brightness, beep, etc.)
+
+* The library does not recognize double-tap, etc.
+
+* The library cannot respond to broadcasts from devices that change state (aka instant notification when you turn on a switch).
+This could probably be accomplished by the calling application polling the getBufferStatus but it may require library changes to respond to the
+proper insteon command type.
+
+## Using the Library
+
+Because scene, room, and device names are stored in the cloud, they are not available to this library. You can use 
+the getLinked() command to get a list of device ids, and their models/categories, and then store 
+these locally in your application with the desired friendly names, etc.
+
+The first thing to do is to instiniate a hub object:
+
+```python
+hub = Hub(ip, user, pass, port, log filename/path, enable console log (Tru eor False))
+```
+
+Example:
+```python
+hub = Hub('192.168.1.16', 'myuser', 'mypass', '25105', '/tmp/insteonlocal.log', True)
+```
+
+The port is normally 25105. The user/pass is on a sticker on the bottom of the hub (but can be changed via the mobile app). The
+ IP address is available via the mobile app
+
+After establishing a connection to the hub, you can create a Switch or Dimmer object (by giving the Insteon ID). See the example.py for examples.
+
+Establish dimmer and turn on to 25%:
+
+```python
+dimmer1 = hub.dimmer('41902d')
+dimmer1.on(25)
+```
+
+Turn on switch:
+
+```python
+switch1 = hub.switch('40465a')
+switch1.on()
+switch1.off()
+```
+
+Turn on group:
+
+```python
+group3 = hub.group("3")
+group3.on()
+```
