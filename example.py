@@ -55,7 +55,6 @@ hub = Hub('192.168.1.160', config.username, config.password, '25105', '/tmp/inst
 # Get list of linked devices
 #devices = hub.getLinked()
 #pprint.pprint(devices)
-#todo
 
 # Group example
 #group2 = hub.group("2")
@@ -63,19 +62,19 @@ hub = Hub('192.168.1.160', config.username, config.password, '25105', '/tmp/inst
 #time.sleep(1)
 #group2.off()
 
-switch1 = hub.switch('40565b')
-switch1.on()
-switch1.beep()
+#switch1 = hub.switch('40565b')
+#switch1.on()
 #switch1.beep()
 #switch1.beep()
-switch1.off()
-
+#switch1.beep()
 #switch1.off()
-# switch join new group 3
-#group3 = hub.group("3")
-#group3.enterLinkMode()
-#hub.directCommand("40565b", "01", group3.groupId)
-#hub.getBufferStatus()
-#group3.cancelLinkUnlinkMode()
 
-#hub.getLinked()
+# switch join new group 3
+group3 = hub.group("3")
+group3.enterLinkMode()
+hub.directCommand("40565b", "01", group3.groupId)
+time.sleep(2)
+hub.getBufferStatus()
+group3.cancelLinkUnlinkMode()
+
+hub.getLinked()

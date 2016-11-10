@@ -84,13 +84,12 @@ class Hub(object):
 
     # Wrapper to send posted direct command and get response
     # level 0 to 100
-    def directCommand(self, deviceId, command, level):
-        self.logger.info("directCommand: Device {} Command {} Command 2 {}".format(deviceId, command, level))
+    def directCommand(self, deviceId, command, command2):
+        self.logger.info("directCommand: Device {} Command {} Command 2 {}".format(deviceId, command, command2))
         deviceId = deviceId.upper()
-        levelHex = self.brightnessToHex(level)
         commandUrl = (self.hubUrl + '/3?' + "0262"
                     + deviceId + self.StdFlag
-                    + command + levelHex + "=I=3")
+                    + command + command2 + "=I=3")
         return self.postDirectCommand(commandUrl)
 
 
@@ -388,6 +387,11 @@ class Hub(object):
             responseStatus['imType']       = responseText[4:6] # 00 IM is responder, 01 is controller, 03 im is either, FF link deleted
             responseStatus['groupId']      = responseText[6:8]
 
+        elif (responseType == '0265'):
+            # Hub responds to cancel all linking
+            responseStatus['responseType'] = responseText[0:4]
+            responseStatus['ack']          = responseText[4:6] # 06
+
         elif ((responseType == '0269') or (responseType == '026A')):
             # Response from getting devices from hub
             responseStatus['error']            = True
@@ -508,7 +512,7 @@ class Hub(object):
 class Group():
 
     def __init__(self, hub, groupId):
-        self.groupId = groupId
+        self.groupId = groupId.zfill(2)
         self.hub = hub
         self.logger = hub.logger
 
@@ -555,7 +559,7 @@ class Group():
     ## @TODO UNTESTED - IN DEVELOPMENT
     def enterLinkMode(self):
         self.logger.info("\nenterLinkMode Group {}".format(self.groupId));
-        self.hub.directCommandShort('09' + self.groupId)
+        self.sceneCommand('09')
         # should send http://0.0.0.0/0?0901=I=0
 
         ## TODO check return status
@@ -567,7 +571,7 @@ class Group():
     ## @TODO UNTESTED - IN DEVELOPMENT
     def enterUnlinkMode(self,):
         self.logger.info("\nenterUnlinkMode Group {}".format(self.groupId));
-        self.hub.directCommandShort('0A' + self.groupId)
+        self.sceneCommand('0A')
         # should send http://0.0.0.0/0?0A01=I=0
 
         ## TODO check return status
@@ -579,7 +583,7 @@ class Group():
     ## @TODO UNTESTED - IN DEVELOPMENT
     def cancelLinkUnlinkMode(self):
         self.logger.info("\ncancelLinkUnlinkMode");
-        self.hub.directCommandShort('08')
+        self.sceneCommand('08')
         # should send http://0.0.0.0/0?08=I=0
 
         ## TODO check return status
@@ -606,9 +610,9 @@ class Switch():
     def on(self):
         self.logger.info("\nSwitch {} on".format(self.deviceId))
 
-        self.hub.directCommand(self.deviceId, '11', '100')
+        self.hub.directCommand(self.deviceId, '11', 'FF')
 
-        success = self.hub.checkSuccess(self.deviceId, '100')
+        success = self.hub.checkSuccess(self.deviceId, 'FF')
 
         if (success):
             self.logger.info("Switch {} on: Light turned on successfully".format(self.deviceId))
@@ -622,9 +626,9 @@ class Switch():
     def off(self):
         self.logger.info("\nSwitch {} off".format(self.deviceId))
 
-        self.hub.directCommand(self.deviceId, '13', '100')
+        self.hub.directCommand(self.deviceId, '13', 'FF')
 
-        success = self.hub.checkSuccess(self.deviceId, '100')
+        success = self.hub.checkSuccess(self.deviceId, 'FF')
 
         if (success):
             self.logger.info("Switch {} off: Light turned off successfully".format(self.deviceId))
@@ -662,9 +666,9 @@ class Dimmer():
     def on(self, level):
         self.logger.info("\nDimmer {} on level {}".format(self.deviceId, level))
 
-        self.hub.directCommand(self.deviceId, '11', level)
+        self.hub.directCommand(self.deviceId, '11', self.hub.brightnessToHex(level))
 
-        success = self.hub.checkSuccess(self.deviceId, level)
+        success = self.hub.checkSuccess(self.deviceId, self.hub.brightnessToHex(level))
         if (success):
             self.logger.info("Dimmer {} on: Light turned on successfully".format(self.deviceId))
         else:
@@ -721,8 +725,8 @@ class Dimmer():
     def changeLevel(self, level):
         self.logger.info("\nDimmer {} changeLevel: level {}".format(self.deviceId, level))
 
-        self.hub.directCommand(self.deviceId, '21', level)
-        success = self.hub.checkSuccess(self.deviceId, level)
+        self.hub.directCommand(self.deviceId, '21', self.hub.brightnessToHex(level))
+        success = self.hub.checkSuccess(self.deviceId, self.hub.brightnessToHex(level))
         if (success):
             self.logger.info("Dimmer {} changeLevel: Light level changed successfully".format(self.deviceId))
         else:
