@@ -62,19 +62,22 @@ hub = Hub('192.168.1.160', config.username, config.password, '25105', '/tmp/inst
 #time.sleep(1)
 #group2.off()
 
-#switch1 = hub.switch('40565b')
+switch1 = hub.switch('40565b')
 #switch1.on()
 #switch1.beep()
 #switch1.beep()
 #switch1.beep()
 #switch1.off()
 
-# switch join new group 3
-group3 = hub.group("3")
-group3.enterLinkMode()
-hub.directCommand("40565b", "01", group3.groupId)
-time.sleep(2)
-hub.getBufferStatus()
-group3.cancelLinkUnlinkMode()
+# switch join new group 03
+#group3 = hub.group("03")
+##group3.enterLinkMode()
+#hub.startAllLinking("01", group3.groupId) #controller
+#switch1 = hub.switch('40565b')
+#switch1.startAllLinking("00", group3.groupId) #responder
+##    b.directCommand("40565b", "01", group3.groupId)
+#time.sleep(2)
+#hub.getBufferStatus()
+##group3.cancelLinkUnlinkMode()
 
 hub.getLinked()

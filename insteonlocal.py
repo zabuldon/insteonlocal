@@ -1,5 +1,8 @@
-import requests, time, pprint, logging, logging.handlers, sys, json
+import pprint, logging, logging.handlers, json, requests
 from collections import OrderedDict
+from time import sleep
+from io import StringIO
+from sys import stdout
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -28,6 +31,8 @@ class Hub(object):
         self.password = password
         self.port = port
 
+        self.buffer_status = OrderedDict()
+
         json_cats = open('device_categories.json')
         json_cats_str = json_cats.read()
         self.deviceCategories = json.loads(json_cats_str)
@@ -37,9 +42,6 @@ class Hub(object):
         self.deviceModels = json.loads(json_models_str)
 
         self.hubUrl = 'http://' + self.ip + ':' + self.port
-
-        # Standard command (not extended)
-        self.StdFlag = "0F"
 
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
@@ -54,7 +56,7 @@ class Hub(object):
         self.logger.addHandler(fh)
 
         if (consoleLog):
-            ch = logging.StreamHandler(stream=sys.stdout)
+            ch = logging.StreamHandler(stream=stdout)
             ch.setLevel(logging.INFO)
             self.logger.addHandler(ch)
 
@@ -84,12 +86,21 @@ class Hub(object):
 
     # Wrapper to send posted direct command and get response
     # level 0 to 100
-    def directCommand(self, deviceId, command, command2):
-        self.logger.info("directCommand: Device {} Command {} Command 2 {}".format(deviceId, command, command2))
+    # extendedPayload is 14 bytes/28 chars
+    def directCommand(self, deviceId, command, command2, extendedPayload = None):
+        extendedPayload = extendedPayload or ''
+        if not extendedPayload:
+            msgType = '0'
+            msgTypeDesc = 'Standard'
+        else:
+            msgType = '1'
+            msgTypeDesc = 'Extended'
+
+        self.logger.info("directCommand: Device: {} Command: {} Command 2: {} MsgType: {}".format(deviceId, command, command2, msgTypeDesc))
         deviceId = deviceId.upper()
         commandUrl = (self.hubUrl + '/3?' + "0262"
-                    + deviceId + self.StdFlag
-                    + command + command2 + "=I=3")
+                    + deviceId + msgType + "F"
+                    + command + command2 + extendedPayload + "=I=3")
         return self.postDirectCommand(commandUrl)
 
 
@@ -110,99 +121,106 @@ class Hub(object):
 
     # Get a list of all currently linked devices
     def getLinked(self):
-        linkedDevices = {}
+        linked_devices = {}
         self.logger.info("\ngetLinked")
 
         #todo instead of sleep, create loop to keep checking buffer
-        self.directCommandHub("0269")
-        time.sleep(1)
-        status = self.getBufferStatus()
-        if (status['linkedDev'] == "000000"):
-            self.logger.info("getLinked: No devices linked")
-            return linkedDevices
+        self.directCommandHub('0269')
+        sleep(1)
+        self.getBufferStatus()
+        msgs = self.buffer_status.get('msgs', [])
+        for entry in msgs:
+            im_code = entry.get('im_code', '')
+            #self.logger.info("getLinked entry {}".format(pprint.pformat(entry)))
 
-        if status['linkedDev'] not in linkedDevices:
-            devInfo = self.idRequest(status['linkedDev'])
-
-            devCat = devInfo.get("response2Cat", "")
-            devSubCat = devInfo.get("response2Subcat", "")
-            devCatRec = self.getDeviceCategory(devCat)
-            if devCatRec and "name" in devCatRec:
-                devCatName = devCatRec["name"]
-                devCatType = devCatRec["type"]
-            else:
-                devCatName = "Unknown"
-                devCatType = "unknown"
-            linkedDevModel = self.getDeviceModel(devCat, devSubCat)
-
-            if "name" in linkedDevModel:
-                devModelName = linkedDevModel["name"]
-            else:
-                devModelName = "unknown"
-
-            if "sku" in linkedDevModel:
-                devSku = linkedDevModel["sku"]
-            else:
-                devSku = "unknown"
-
-            self.logger.info("getLinked: Got first device: {} group {} cat type {} cat name {} dev model name {}".format(status['linkedDev'], status['linkedGroupNum'], devCatType, devCatName, devModelName))
-            linkedDev = status['linkedDev']
-            linkedDevices[linkedDev] = {
-                'catName': devCatName,
-                'catType': devCatType,
-                'modelName' : devModelName,
-                'cat': devCat,
-                'subCat': devSubCat,
-                'sku': devSku,
-                'group': []
-            }
-        linkedGroupNum = status['linkedGroupNum']
-        linkedDevices[linkedDev]['group'].append(linkedGroupNum)
-
-        while (status['success']):
-            self.directCommandHub("026A")
-            time.sleep(1)
-            status = self.getBufferStatus()
-            if (status['linkedDev'] != "000000"):
-                if status['linkedDev'] not in linkedDevices:
-                    devInfo = self.idRequest(status['linkedDev'])
-                    devCat = devInfo.get("response2Cat", "")
-                    devSubCat = devInfo.get("response2Subcat", "")
-                    devCatRec = self.getDeviceCategory(devCat)
-                    if devCatRec and "name" in devCatRec:
-                        devCatName = devCatRec["name"]
-                        devCatType = devCatRec["type"]
+            if (im_code == '57'):
+                id = entry.get('id_high', '') + entry.get('id_mid', '') + entry.get('id_low', '')
+                group = entry.get('group', '')
+                if id not in linked_devices:
+                    dev_info = self.idRequest(id)
+                    dev_cat = dev_info.get('id_high', '')
+                    dev_sub_cat = dev_info.get('id_mid', '')
+                    dev_cat_record = self.getDeviceCategory(dev_cat)
+                    if dev_cat_record and 'name' in dev_cat_record:
+                        dev_cat_name = dev_cat_record['name']
+                        dev_cat_type = dev_cat_record['type']
                     else:
-                        devCatName = "Unknown"
-                        devCatType = "unknown"
+                        dev_cat_name = 'unknown'
+                        dev_cat_type = 'unknown'
 
-                    linkedDevModel = self.getDeviceModel(devCat, devSubCat)
-                    if "name" in linkedDevModel:
-                        devModelName = linkedDevModel["name"]
+                    linked_dev_model = self.getDeviceModel(dev_cat, dev_sub_cat)
+                    if 'name' in linked_dev_model:
+                        dev_model_name = linked_dev_model['name']
                     else:
-                        devModelName = "unknown"
+                        dev_model_name = 'unknown'
 
-                    if "sku" in linkedDevModel:
-                        devSku = linkedDevModel["sku"]
+                    if 'sku' in linked_dev_model:
+                        dev_sku = linked_dev_model['sku']
                     else:
-                        devSku = "unknown"
-                    self.logger.info("getLinked: Got |device| {} |group| {} |cat type| {} |cat name| {} |dev model name| {}".format(status['linkedDev'], status['linkedGroupNum'], devCatType, devCatName, devModelName))
-                linkedDev = status['linkedDev']
-                if linkedDev not in linkedDevices:
-                    linkedDevices[linkedDev] = {
-                        'catName': devCatName,
-                        'catType': devCatType,
-                        'modelName' : devModelName,
-                        'cat': devCat,
-                        'subCat': devSubCat,
-                        'sku': devSku,
+                        dev_sku = 'unknown'
+
+                    self.logger.info("getLinked: Got first device: {} group {} cat type {} cat name {} dev model name {}".format(id, group, dev_cat_type, dev_cat_name, dev_model_name))
+                    linked_devices[id] = {
+                        'cat_name': dev_cat_name,
+                        'cat_type': dev_cat_type,
+                        'model_name' : dev_model_name,
+                        'cat': dev_cat,
+                        'sub_cat': dev_sub_cat,
+                        'sku': dev_sku,
                         'group': []
                     }
-                linkedGroupNum = status['linkedGroupNum']
-                linkedDevices[linkedDev]['group'].append(linkedGroupNum)
 
-        self.logger.info("getLinked: Final device list: {}".format(pprint.pformat(linkedDevices)))
-        return linkedDevices
+                linked_devices[id]['group'].append(group)
+
+        while (self.buffer_status['success']):
+            self.directCommandHub('026A')
+            sleep(1)
+            self.getBufferStatus()
+            msgs = self.buffer_status.get('msgs', [])
+            for entry in msgs:
+                im_code = entry.get('im_code', '')
+                if (im_code == '57'):
+                    id = entry.get('id_high', '') + entry.get('id_mid', '') + entry.get('id_low', '')
+                    group = entry.get('group', '')
+
+                    if id not in linked_devices:
+                        dev_info = self.idRequest(id)
+                        dev_cat = dev_info.get('id_high', '')
+                        dev_sub_cat = dev_info.get('id_mid', '')
+                        dev_cat_record = self.getDeviceCategory(dev_cat)
+                        if dev_cat_record and 'name' in dev_cat_record:
+                            dev_cat_name = dev_cat_record['name']
+                            dev_cat_type = dev_cat_record['type']
+                        else:
+                            dev_cat_name = 'unknown'
+                            dev_cat_type = 'unknown'
+
+                        linked_dev_model = self.getDeviceModel(dev_cat, dev_sub_cat)
+                        if 'name' in linked_dev_model:
+                            dev_model_name = linked_dev_model['name']
+                        else:
+                            dev_model_name = 'unknown'
+
+                        if 'sku' in linked_dev_model:
+                            dev_sku = linked_dev_model['sku']
+                        else:
+                            dev_sku = 'unknown'
+
+                        self.logger.info("getLinked: Got device: {} group {} cat type {} cat name {} dev model name {}".format(id, group, dev_cat_type, dev_cat_name, dev_model_name))
+                        linked_devices[id] = {
+                            'cat_name': dev_cat_name,
+                            'cat_type': dev_cat_type,
+                            'model_name' : dev_model_name,
+                            'cat': dev_cat,
+                            'sub_cat': dev_sub_cat,
+                            'sku': dev_sku,
+                            'group': []
+                        }
+
+                    linked_devices[id]['group'].append(group)
+
+        self.logger.info("getLinked: Final device list: {}".format(pprint.pformat(linked_devices)))
+        return linked_devices
 
 
     # Given the category id, return name and type for the category
@@ -215,27 +233,27 @@ class Hub(object):
 
     # Return the model name given cat/subcat or product key
     def getDeviceModel(self, cat, subCat, key=''):
-        if cat + ":" + subCat in self.deviceModels:
-            return self.deviceModels[cat + ":" + subCat]
+        if cat + ':' + subCat in self.deviceModels:
+            return self.deviceModels[cat + ':' + subCat]
         else:
             for k,v in self.deviceModels.items():
-                if "key" in v:
-                    if v["key"] == key:
+                if 'key' in v:
+                    if v['key'] == key:
                         return v
             return False
 
 
     # Get the device for the ID. ID request can return device type (cat/subcat), firmware ver, etc.
-    # cat is status['response2Cat'], sub cat is status['response2Subcat']
+    # cat is status['is_high'], sub cat is status['id_mid']
     def idRequest(self, deviceId):
         self.logger.info("\nidRequest for device {}".format(deviceId))
         deviceId = deviceId.upper()
 
-        self.directCommand(deviceId, "10", "00")
+        self.directCommand(deviceId, '10', '00')
 
-        time.sleep(2)
+        sleep(2)
 
-        status = self.getBufferStatus()
+        status = self.getBufferStatus(deviceId)
 
         return status
 
@@ -250,12 +268,12 @@ class Hub(object):
         deviceId = deviceId.upper()
 
         if (returnLED == 1):
-            level = "01"
+            level = '01'
         else:
-            level = "00"
-        self.directCommand(deviceId, "19", level)
+            level = '00'
+        self.directCommand(deviceId, '19', level)
 
-        time.sleep(2)
+        sleep(2)
 
         status = self.getBufferStatus()
 
@@ -263,196 +281,528 @@ class Hub(object):
 
 
     # Main method to read from buffer
-    def getBufferStatus(self):
-        commandUrl = self.hubUrl + '/buffstatus.xml'
-        self.logger.info("getBufferStatus: {}".format(commandUrl))
+    # Optionally pass in device to only get response from that device
+    def getBufferStatus(self, device_from = None):
+        device_from = device_from or ''
 
-        response = self.getDirectCommand(commandUrl)
-        responseText = response.text
-        responseText = responseText.replace('<response><BS>', '')
-        responseText = responseText.replace('</BS></response>', '')
+        # only used if device_from passed in
+        return_record =  OrderedDict()
 
-        responseStatus = OrderedDict()
+        command_url = self.hubUrl + '/buffstatus.xml'
+        self.logger.info("getBufferStatus: {}".format(command_url))
 
-        responseType = responseText[0:4]
+        response = self.getDirectCommand(command_url)
+        raw_text = response.text
+        raw_text = raw_text.replace('<response><BS>', '')
+        raw_text = raw_text.replace('</BS></response>', '')
+        raw_text = raw_text.strip()
+        self.logger.info('getBufferStatus: Got raw text of: {}'.format(raw_text))
 
-        self.logger.info("getBufferStatus: Got Response type {} text of {}".format(responseType, responseText))
+        # the last byte in the buffer indicates where it stopped writing. checking for text after that
+        # position would show if the buffer has overlapped and allow ignoring the old stuff after
+        buffer_end = raw_text[-2:]
+        buffer_end_int = int(buffer_end, 16)
+        raw_text = raw_text[0:buffer_end_int]
+        self.logger.info('bufferEnd hex {} dec {}'.format(buffer_end, buffer_end_int))
+        self.logger.info('getBufferStatus: non wrapped {}'.format(raw_text))
 
-        if (responseType == '0250'):
-            self.logger.info("Response type 0250 standard message")
-            responseStatus['error']            = True
-            responseStatus['success']          = False
-            responseStatus['message']          = ''
-            responseStatus['responseType']     = responseText[0:4]
-            responseStatus['responseDevice']   = responseText[4:10]
-            responseStatus['responseHub']      = responseText[10:16]
-            responseStatus['responseFlag']     = responseText[16:17] # 2 for ack
-            responseStatus['responseHopCt']    = responseText[17:18] # hop count F, B, 7, or 3
-            responseStatus['responseCmd1']     = responseText[18:20] # cmd 1
-            responseStatus['responseCmd2']     = responseText[20:22] # brightness, etc.
-        elif (responseType == '0251'):
-            # TODO
-            self.logger.error("Not implemented handling 0251 extended message")
-        elif (responseType == '0252'):
-            self.logger.error("Not implemented handling 0252 X10 message received")
-        elif (responseType == '0253'):
-            # TODO test
-            self.logger.info("Response type 0253 All Linking Completed")
-            responseStatus['error']            = True
-            responseStatus['success']          = False
-            responseStatus['message']          = ''
-            responseStatus['sendResponseType'] = responseText[0:4] # direct vs scene,
-            # imType = 00 responder 01 controller FF link deleted
-            responseStatus['imType']           = responseText[4:6]
-            responseStatus['groupId']          = responseText[6:8]
-            responseStatus['responseDevice']   = responseText[8:14]
-            responseStatus['deviceCat']        = responseText[14:16]
-            responseStatus['deviceSubcat']     = responseText[16:18]
-            responseStatus['firmware']         = responseText[18:20]
+        self.buffer_status = OrderedDict()
 
-        elif (responseType == '0254'):
-            # TODO
-            self.logger.error("Not implemented handling 0254 Button Event Report")
-            # next byte:
-            # 02 set button tapped
-            # 03 set button held
-            # 04 set button released after hold
-            # 12 button 2 tapped
-            # 13 button 2 held
-            # 14 button 2 released after hold
-            # 22 button 3 tapped
-            # 23 button 3 held
-            # 24 button 3 released after hold
-        elif (responseType == '0255'):
-            # TODO
-            self.logger.error("Not implemented handling 0255 User Reset - user pushed and held SET button on power up")
-        elif (responseType == '0256'):
-            # TODO
-            self.logger.error("Not implemented handling 0256 All-link cleanup failure")
-        elif (responseType == '0257'):
-            # TODO
-            self.logger.error("Not implemented handling 0257 All-link record response")
-        elif (responseType == '0258'):
-            # TODO
-            self.logger.error("Not implemented handling 0258 All-link cleanup status report")
-        elif (responseType == '0259'):
-            # TODO
-            self.logger.error("Not implemented handling 0259 database record found")
-        elif (responseType == '0261'):
-            # scene response
-            self.logger.info("Response type 0261 scene response")
-            responseStatus['error']            = True
-            responseStatus['success']          = False
-            responseStatus['message']          = ''
-            responseStatus['responseType']     = responseText[0:4]
-            responseStatus['groupNum']         = responseText[4:6]
-            responseStatus['groupCmd']         = responseText[6:8] # 11 for on
-            responseStatus['groupCmdArg']      = responseText[8:10] # ????
-            responseStatus['ackorNak']         = responseText[10:12]
+        self.buffer_status['error']   = False
+        self.buffer_status['success'] = True
+        self.buffer_status['message'] = ''
+        self.buffer_status['msgs']    = []
 
-        elif (responseType == '0262'):
-            self.logger.info("Response type 0262 (cmd sent from host) extended msg received {}".format(responseText[18:22]))
-            # Pass through command to PLM
-            responseStatus['error']            = True
-            responseStatus['success']          = False
-            responseStatus['message']          = ''
-            responseStatus['sendResponseType'] = responseText[0:4] # direct vs scene,
-            responseStatus['sendDevice']       = responseText[4:10]
-            responseStatus['sendCmdFlag']      = responseText[10:12] # std vs extended
-            responseStatus['sendCmd']          = responseText[12:14]
-            responseStatus['sendCmdArg']       = responseText[14:16]
-            responseStatus['ackorNak']         = responseText[16:18] # 06 ok 15 error
-            responseStatus['responseType']     = responseText[18:22]
-            responseStatus['responseDevice']   = responseText[22:28]
-            responseStatus['responseHub']      = responseText[28:34]
-            responseStatus['responseFlag']     = responseText[34:35] # 2 for ack
-            responseStatus['responseHopCt']    = responseText[35:36] # hop count F, B, 7, or 3
-            responseStatus['responseCmd1']     = responseText[36:38] # database delta
-            responseStatus['responseCmd2']     = responseText[38:40] # brightness, etc.
+        buffer_contents = StringIO(raw_text)
 
-            if ((len(responseText) > 40) and (responseText[40:44] != "0000") and (responseText[0:44] != "")):
-                # we have another message - like id response
-                responseStatus['response2Type']     = responseText[40:44]
-                responseStatus['response2Device']   = responseText[44:50]
-                responseStatus['response2Cat']      = responseText[50:52]
-                responseStatus['response2Subcat']   = responseText[52:54]
-                responseStatus['response2Firmware'] = responseText[54:56]
-                responseStatus['response2Flag']     = responseText[56:57]
-                responseStatus['response2HopCt']    = responseText[57:58]
-                responseStatus['response2Cmd1']     = responseText[58:60]
-                responseStatus['response2Cmd2']     = responseText[60:62]
+        while True:
 
-        elif (responseType == '0264'):
-            responseStatus['responseType'] = responseText[0:4]
-            responseStatus['imType']       = responseText[4:6] # 00 IM is responder, 01 is controller, 03 im is either, FF link deleted
-            responseStatus['groupId']      = responseText[6:8]
+            msg = buffer_contents.read(4)
+            if ((len(msg) < 4) or (msg == '') or (msg == '0000')):
+                break
 
-        elif (responseType == '0265'):
-            # Hub responds to cancel all linking
-            responseStatus['responseType'] = responseText[0:4]
-            responseStatus['ack']          = responseText[4:6] # 06
+            im_start = msg[0:2]
+            im_cmd = msg[2:4]
 
-        elif ((responseType == '0269') or (responseType == '026A')):
-            # Response from getting devices from hub
-            responseStatus['error']            = True
-            responseStatus['success']          = False
-            responseStatus['message']          = ''
-            responseStatus['sendCmd']          = responseText[0:4] # 0269
-            responseStatus['ackorNak']         = responseText[4:6] # 06 ack 15 nak or empty
-            responseStatus['responseCmd']      = responseText[6:10] # 0257 all link record response
-            responseStatus['responseFlags']    = responseText[10:12] # 00-FF is controller...bitted for in use, master/slave, etc. See p44 of INSTEON Hub Developers Guide 20130618
-            responseStatus['linkedGroupNum']   = responseText[12:14]
-            responseStatus['linkedDev']        = responseText[14:20]
-            responseStatus['linkedData1']     = responseText[20:22] # 01 dimmer
-            responseStatus['linkedData2']  = responseText[22:24] # varies by device type
-            responseStatus['linkedData3'] = responseText[24:26] # varies by device type
+            response_record = OrderedDict()
+            response_record['im_code'] = im_cmd
 
-        if ((not responseText) or (responseText == 0) or (responseType == "0000")):
-            responseStatus['error'] = True
-            responseStatus['success'] = False
-            responseStatus['message'] = 'Empty buffer'
-        elif (responseStatus.get('ackorNak', '') == '06'):
-            responseStatus['success'] = True
-            responseStatus['error'] = False
-        elif (responseStatus.get('ackorNak', '') == '15'):
-            responseStatus['success'] = False
-            responseStatus['error'] = True
-            responseStatus['message'] = 'Device returned nak'
-        elif (responseStatus.get('responseFlag', '') == '2'):
-            responseStatus['success'] = True
-            responseStatus['error'] = False
+            # Standard Message Received
+            if im_cmd == '50':
+                msg = msg + buffer_contents.read(18)
+                response_record['im_code_desc'] = 'Standard Message Received'
+                response_record['raw']          = msg
+                response_record['id_from']      = msg[4:10]
+                response_record['id_high']      = msg[10:12] # direct id high, group groupid, broadcast cat
+                response_record['id_mid']       = msg[12:14] # direct id mid, broadcast subcat
+                response_record['id_low']       = msg[14:16] # direct id low, broadcast firmware version
+                response_record['flag1']        = msg[16:17] # 2 ack, 8 broadcast
+                response_record['flag2']        = msg[17:18] # hop count B
+                response_record['cmd1']         = msg[18:20] # direct cmd, broadcast 01, status db delta
+                response_record['cmd2']         = msg[20:22] # direct cmd 2, broadcast 00, status on level
 
-        self.logger.info("getBufferStatus: Received response of: {}".format(pprint.pformat(responseStatus)))
+            # Extended Mesage Received
+            elif im_cmd == '51':
+                msg = msg + buffer_contents.read(46)
 
-        # Best to clear it after reading it. It overwrites the buffer left
-        # to right but doesn't clear out old chars past what it wrote. Last
-        # two bytes tell where it stopped writing
+                response_record['im_code_desc'] = 'Extended Message Received'
+                response_record['raw']          = msg
+                response_record['id_from']      = msg[4:10]
+                response_record['id_high']      = msg[10:12] # direct id high, group groupid, broadcast cat
+                response_record['id_mid']       = msg[12:14] # direct id mid, broadcast subcat
+                response_record['id_low']       = msg[14:16] # direct id low, broadcast firmware version
+                response_record['flags']        = msg[16:18] # 2 ack, 8 broadcast + hop count B
+                response_record['cmd1']         = msg[18:20] # direct cmd, broadcast 01, status db delta
+                response_record['cmd2']         = msg[20:22] # direct cmd 2, broadcast 00, status on level
+                response_record['user_data_1']  = msg[22:24]
+                response_record['user_data_2']  = msg[24:26]
+                response_record['user_data_3']  = msg[26:28]
+                response_record['user_data_4']  = msg[28:30]
+                response_record['user_data_5']  = msg[30:32]
+                response_record['user_data_6']  = msg[32:34]
+                response_record['user_data_7']  = msg[34:36]
+                response_record['user_data_8']  = msg[36:38]
+                response_record['user_data_9']  = msg[38:40]
+                response_record['user_data_10'] = msg[40:42]
+                response_record['user_data_11'] = msg[42:44]
+                response_record['user_data_12'] = msg[44:46]
+                response_record['user_data_13'] = msg[46:48]
+                response_record['user_data_14'] = msg[48:50]
+
+            # X10 Received (not implemented)
+            elif im_cmd == '52':
+                self.logger.error('Not implemented handling of 0252 X10 Received')
+                break
+
+            # ALL-Linking Completed
+            elif im_cmd == '53':
+                msg = msg = buffer_contents.read(16)
+
+                response_record['im_code_desc']    = 'ALL-Linking Completed'
+                response_record['raw']             = msg
+                response_record['link_status']     = msg[4:6]
+
+                if (response_record['link_status'] == '00'):
+                    response_record['link_status_desc'] = 'IM is Responder'
+                elif (response_record['link_status'] == '01'):
+                    response_record['link_status_desc'] = 'IM is Controller'
+                elif (response_record['link_status'] == 'FF'):
+                    response_record['link_status_desc'] = 'Link Deleted'
+
+                response_record['group']            = msg[6:8]
+                response_record['id_high']          = msg[8:10]
+                response_record['id_mid']           = msg[10:12]
+                response_record['id_low']           = msg[12:14]
+                response_record['dev_cat']          = msg[14:16]
+                response_record['dev_subcat']       = msg[16:18]
+                response_record['dev_firmware_rev'] = msg[18:20] # or FF for newer devices
+
+            # Button Event Report
+            elif im_cmd == '54':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']    = 'Button Event Report'
+                response_record['raw']             = msg
+                response_record['report_type']     = msg[4:6]
+                if (response_record['report_type'] == "02"):
+                    response_record['report_type_desc'] = "IM's SET Button tapped"
+                elif (response_record['report_type'] == "03"):
+                    response_record['report_type_desc'] = "IM's SET Button held"
+                elif (response_record['report_type'] == "04"):
+                    response_record['report_type_desc'] = "IM's SET Button released after hold"
+                elif (response_record['report_type'] == "12"):
+                    response_record['report_type_desc'] = "IM's Button 2 tapped"
+                elif (response_record['report_type'] == "13"):
+                    response_record['report_type_desc'] = "IM's Button 2 held"
+                elif (response_record['report_type'] == "14"):
+                    response_record['report_type_desc'] = "IM's Button 2 released after hold"
+                elif (response_record['report_type'] == "22"):
+                    response_record['report_type_desc'] = "IM's Button 3 tapped"
+                elif (response_record['report_type'] == "23"):
+                    response_record['report_type_desc'] = "IM's Button 3 held"
+                elif (response_record['report_type'] == "24"):
+                    response_record['report_type_desc'] = "IM's Button 3 released after hold"
+
+            # User Reset Detected
+            elif im_cmd == '55':
+                response_record['im_code_desc']  = 'User Reset Detected'
+                response_record['raw']           = msg
+                response_record['im_code_desc2'] = "User pushed and held IM's SET Button on power up"
+
+            # ALL-Link Cleanup Failure Report
+            elif im_cmd == '56':
+                msg = msg + buffer_contents.read(10)
+
+                response_record['im_code_desc']  = 'ALL-Link Cleanup Failure Report'
+                response_record['raw']           = msg
+                response_record['group']         = msg[4:6]
+                response_record['ack']           = msg[6:8] # 01 means member did not acknlowedge all-link cleanup cmd
+                response_record['id_high']       = msg[8:10]
+                response_record['id_mid']        = msg[10:12]
+                response_record['id_low']        = msg[12:14]
+
+            # ALL-Link Record Response
+            elif im_cmd == '57':
+                msg = msg + buffer_contents.read(20)
+
+                response_record['im_code_desc'] = 'ALL-Link Record Response'
+                response_record['raw']          = msg
+                response_record['flags']        = msg[4:6] # hub dev manual p 39
+                response_record['group']        = msg[6:8]
+                response_record['id_high']      = msg[8:10]
+                response_record['id_mid']       = msg[10:12]
+                response_record['id_low']       = msg[12:14]
+                response_record['link_data_1']  = msg[14:16]
+                response_record['link_data_2']  = msg[16:18]
+                response_record['link_data_3']  = msg[18:20]
+
+            # ALL-Link Cleanup Status Report
+            elif im_cmd == '58':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']   = 'ALL-Link Cleanup Status Report'
+                response_record['raw']            = msg
+                response_record['cleanup_status'] = msg[4:6]
+                if (response_record['cleanup_status'] == '06'):
+                    response_record['cleanup_status_desc'] = 'ALL-Link Cleanup sequence completed'
+                elif (response_record['cleanup_status'] == '15'):
+                    response_record['cleanup_status_desc'] = 'ALL-Link Cleanup sequence aborted due to INSTEON traffic'
+
+            # Database Record Found
+            elif im_cmd == '59':
+                msg = msg + buffer_contents.read(18)
+
+                response_record['im_code_desc'] = 'Database Record Found'
+                response_record['raw']          = msg
+                response_record['address_low']  = msg[4:6]
+                response_record['record_flags'] = msg[6:8]
+                response_record['group']        = msg[8:10]
+                response_record['id_high']      = msg[10:12]
+                response_record['id_mid']       = msg[12:14]
+                response_record['id_low']       = msg[14:16]
+                response_record['link_data_1']  = msg[16:18]
+                response_record['link_data_2']  = msg[18:20]
+                response_record['link_data_3']  = msg[20:22]
+
+            # Get IM Info
+            elif im_cmd == '60':
+                msg = msg + buffer_contents.read(14)
+
+                response_record['im_code_desc']     = 'Get IM Info'
+                response_record['raw']              = msg
+                response_record['id_high']          = msg[4:6]
+                response_record['id_mid']           = msg[6:8]
+                response_record['id_low']           = msg[8:10]
+                response_record['dev_cat']          = msg[10:12]
+                response_record['dev_subcat']       = msg[12:14]
+                response_record['dev_firmware_rev'] = msg[14:16]
+                response_record['ack_or_nak']       = msg[16:18] # 06 ack
+
+            # Send ALL-Link Command
+            elif im_cmd == '61':
+                msg = msg + buffer_contents.read(8)
+
+                response_record['im_code_desc']   = 'Send ALL-Link Command'
+                response_record['raw']            = msg
+                response_record['group']          = msg[4:6]
+                response_record['cmd']            = msg[6:8]
+                response_record['broadcast_cmd2'] = msg[8:10] # FF or 00
+                response_record['ack_or_nak']     = msg[10:12] # 06 ack
+
+            # Send Message (Pass through command to PLM)
+            elif im_cmd == '62':
+                msg = msg + buffer_contents.read(14)
+
+                response_record['im_code_desc'] = 'Send Message'
+                response_record['raw']          = msg
+                response_record['id']           = msg[4:10]
+                response_record['flags']        = msg[10:12]
+                response_record['cmd1']         = msg[12:14]
+                response_record['cmd2']         = msg[14:16]
+                response_record['ack_or_nak']   = msg[16:18] # 06 ack 15 nak
+
+            # Send X10 (not implemented)
+            elif im_cmd == '63':
+                self.logger.error('Not implemented handling of 0263 Send X10')
+                break
+
+            # Start ALL-Linking
+            elif im_cmd == '64':
+                msg = msg + buffer_contents.read(6)
+
+                response_record['im_code_desc'] = 'Start ALL-Linking'
+                response_record['raw']          = msg
+                response_record['link_type']    = msg[4:6]
+
+                if (response_record['link_type'] == '00'):
+                    response_record['link_type_desc'] = 'IM is Responder'
+                elif (response_record['link_type'] == '01'):
+                    response_record['link_type_desc'] = 'IM is Controller'
+                elif (response_record['link_type'] == '03'):
+                    response_record['link_type_desc'] = 'IM is Either Responder or Controller'
+                elif (response_record['link_type'] == 'FF'):
+                    response_record['link_type_desc'] = 'Link Deleted'
+
+                response_record['group']        = msg[6:8]
+                response_record['ack_or_nak']   = msg[8:10] # 06 ack 15 nak
+
+            # Cancel ALL-Linking
+            elif im_cmd == '65':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc'] = 'Cancel ALL-Linking'
+                response_record['raw']          = msg
+                response_record['ack_or_nak']   = msg[4:6] # 06 ack 15 nak
+
+            # Set Host Device Category
+            elif im_cmd == '66':
+                msg = msg + buffer_contents.read(8)
+
+                response_record['im_code_desc']     = 'Set Host Device Category'
+                response_record['raw']              = msg
+                response_record['dev_cat']          = msg[4:6]
+                response_record['dev_subcat']       = msg[6:8]
+                response_record['dev_firmware_rev'] = msg[8:10] # or 00
+                response_record['ack_or_nak']       = msg[10:12] # 06 ack 15 nak
+
+            # Reset the IM
+            elif im_cmd == '67':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']     = 'Reset the IM'
+                response_record['raw']              = msg
+                response_record['ack_or_nak']       = msg[4:6] # 06 ack 15 nak
+
+            # Set INSTEON ACK Message Byte
+            elif im_cmd == '68':
+                msg = msg + buffer_contents.read(4)
+
+                response_record['im_code_desc']     = 'Set INSTEON ACK Message Byte'
+                response_record['raw']              = msg
+                response_record['cmd2_data']        = msg[4:6]
+                response_record['ack_or_nak']       = msg[6:8] # 06 ack 15 nak
+
+            # Get First ALL-Link Record
+            elif im_cmd == '69':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']     = 'Get First ALL-Link Record'
+                response_record['raw']              = msg
+                response_record['ack_or_nak']       = msg[4:6] # 06 ack 15 nak
+
+            # Get Next ALL-Link Record
+            elif im_cmd == '6A':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']     = 'Get Next ALL-Link Record'
+                response_record['raw']              = msg
+                response_record['ack_or_nak']       = msg[4:6] # 06 ack 15 nak
+
+            # Set IM Configuration
+            elif im_cmd == '6B':
+                msg = msg + buffer_contents.read(4)
+
+                response_record['im_code_desc']     = 'Set IM Configuration'
+                response_record['raw']              = msg
+                response_record['im_cfg_flags']     = msg[4:6]
+                response_record['ack_or_nak']       = msg[6:8] # 06 ack 15 nak
+
+            # Get ALL-Link Record for Sender
+            elif im_cmd == '6C':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']     = 'Get ALL-Link Record for Sender'
+                response_record['raw']              = msg
+                response_record['ack_or_nak']       = msg[4:6] # 06 ack 15 nak
+
+            # LED On
+            elif im_cmd == '6D':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']     = 'LED On'
+                response_record['raw']              = msg
+                response_record['ack_or_nak']       = msg[4:6] # 06 ack 15 nak
+
+            # LED Off
+            elif im_cmd == '6E':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']     = 'LED Off'
+                response_record['raw']              = msg
+                response_record['ack_or_nak']       = msg[4:6] # 06 ack 15 nak
+
+            # Manage ALL-Link Record
+            elif im_cmd == '6F':
+                msg = msg + buffer_contents.read(20)
+
+                response_record['im_code_desc']     = 'Manage ALL-Link Record'
+                response_record['raw']              = msg
+                response_record['ctrl_flags']       = msg[4:6]
+                response_record['record_flags']     = msg[6:8]
+                response_record['group']            = msg[8:10]
+                response_record['id_high']          = msg[10:12]
+                response_record['id_mid']           = msg[12:14]
+                response_record['id_low']           = msg[14:16]
+                response_record['link_data_1']      = msg[16:18]
+                response_record['link_data_2']      = msg[18:20]
+                response_record['link_data_3']      = msg[20:22]
+                response_record['ack_or_nak']       = msg[22:24] # 06 ack
+
+            # Set INSTEON ACK Message Two Bytes
+            elif im_cmd == '71':
+                msg = msg + buffer_contents.read(6)
+
+                response_record['im_code_desc']     = 'Set INSTEON ACK Message Two Bytes'
+                response_record['raw']              = msg
+                response_record['cmd1_data']        = msg[4:6]
+                response_record['cmd2_data']        = msg[6:8]
+                response_record['ack_or_nak']       = msg[8:10] # 06 ack
+
+            # RF Sleep
+            elif im_cmd == '72':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']     = 'RF Sleep'
+                response_record['raw']              = msg
+                response_record['ack_or_nak']       = msg[4:6] # 06 ack
+
+            # Get IM Configuration
+            elif im_cmd == '73':
+                msg = msg + buffer_contents.read(8)
+
+                response_record['im_code_desc']     = 'Get IM Configuration'
+                response_record['raw']              = msg
+                response_record['im_cfg_flags']     = msg[4:6]
+                response_record['spare1']           = msg[6:8]
+                response_record['spare2']           = msg[8:10]
+                response_record['ack_or_nak']       = msg[10:12] # 06 ack
+
+            # Cancel Cleanup
+            elif im_cmd == '74':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']     = 'Cancel Cleanup'
+                response_record['raw']              = msg
+                response_record['ack_or_nak']       = msg[4:6] # 06 ack 15 nak
+
+            # Read 8 bytes from Database
+            elif im_cmd == '75':
+                msg = msg + buffer_contents.read(30)
+
+                response_record['im_code_desc']     = 'Read 8 bytes from Database'
+                response_record['raw']              = msg
+                response_record['db_addr_high']     = msg[4:6]
+                response_record['db_addr_low']      = msg[6:8] # low nibble F, or 8
+                response_record['ack_or_nak']       = msg[8:10] # 06 ack
+                response_record['record']           = msg[10:34] # database record founnd response 12 bytes
+
+            # Write 8 bytes to Database
+            elif im_cmd == '76':
+                msg = msg + buffer_contents.read(22)
+
+                response_record['im_code_desc']     = 'Write 8 bytes to Database'
+                response_record['raw']              = msg
+                response_record['db_addr_high']     = msg[4:6]
+                response_record['db_addr_low']      = msg[6:8] # low nibble F, or 8
+                response_record['record_flags']     = msg[8:10]
+                response_record['group']            = msg[10:12]
+                response_record['id_high']          = msg[12:14]
+                response_record['id_middle']        = msg[14:16]
+                response_record['id_low']           = msg[16:18]
+                response_record['link_data_1']      = msg[18:20]
+                response_record['link_data_2']      = msg[20:22]
+                response_record['link_data_3']      = msg[22:24]
+                response_record['ack_or_nak']       = msg[24:26] # 06 ac
+
+            # Beep
+            elif im_cmd == '77':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']     = 'Beep'
+                response_record['raw']              = msg
+                response_record['ack_or_nak']       = msg[4:6] # 06 ack 15 nak
+
+            # Set Status
+            # IM reports Status in cmd2 of direct Status Request command (19)
+            elif im_cmd == '78':
+                msg = msg + buffer_contents.read(2)
+
+                response_record['im_code_desc']     = 'Set Status'
+                response_record['raw']              = msg
+                response_record['ack_or_nak']       = msg[4:6] # 06 ack
+
+            # Set Database Link Data for Next Link
+            elif im_cmd == '79':
+                msg = msg + buffer_contents.read(8)
+
+                response_record['im_code_desc']     = 'Set Database Link Data for Next Link'
+                response_record['raw']              = msg
+                response_record['link_data_1']      = msg[4:6]
+                response_record['link_data_2']      = msg[6:8]
+                response_record['link_data_3']      = msg[8:10]
+                response_record['ack_or_nak']       = msg[10:12] # 06 ack
+
+            # Set Application Retries for New Links
+            elif im_cmd == '7A':
+                msg = msg + buffer_contents.read(4)
+
+                response_record['im_code_desc']     = 'Set Application Retries for New Links'
+                response_record['raw']              = msg
+                response_record['num_retries']      = msg[4:6]
+                response_record['ack_or_nak']       = msg[6:8] # 06 ack
+
+            # Set RF Frequency Offset
+            elif im_cmd == '7B':
+                msg = msg + buffer_contents.read(4)
+
+                response_record['im_code_desc']     = 'Set RF Frequency Offset'
+                response_record['raw']              = msg
+                response_record['rf_freq_offset']   = msg[4:6]
+                response_record['ack_or_nak']       = msg[6:8] # 06 ack
+
+            # Set Acknowledge for TempLinc Command (not implemented)
+            elif im_cmd == '7C':
+                self.logger.error("Not implemented handling of 027C Set Acknowledge for TempLinc command")
+                break
+
+            if (response_record.get('ack_or_nak', '') == '15'):
+                self.buffer_status['error'] = True
+                self.buffer_status['success'] = False
+                self.buffer_status['message'] = 'Device returned nak'
+
+            response_device_from = response_record.get('id_from', '')
+            if device_from and device_from == response_device_from:
+                return_record = response_record
+
+            self.buffer_status['msgs'].append(response_record)
+
+        # Tell hub to clear buffer
         self.clearBuffer()
-        return responseStatus
+
+        pprint.pprint(self.buffer_status)
+
+        if device_from:
+            return return_record
+
 
 
     ## Check if last command succeeded  by checking buffer
-    def checkSuccess(self, deviceId, level):
-        deviceId = deviceId.upper()
+    def checkSuccess(self, device_id, sent_cmd1, sent_cmd2):
+        device_id = device_id.upper()
 
-        self.logger.info('checkSuccess: for device {} level {}'.format(deviceId, level))
+        self.logger.info('checkSuccess: for device {} cmd1 {} cmd2 {}'.format(device_id, sent_cmd1, sent_cmd2))
 
-        time.sleep(2)
-        status = self.getBufferStatus()
-        statusDevice = status.get("responseDevice", "")
-        statusCmdArg = status.get("responseCmd2", "")
-        statusSuccess = status.get("success", False)
-        #self.logger.info('checkSuccess: Got status {}'.format(pprint.pformat(status)))
-        self.logger.info('checkSuccess: Response device {} cmd {}'.format(statusDevice, statusCmdArg))
-        if ((statusDevice == deviceId) and statusSuccess
-            and (statusCmdArg == self.brightnessToHex(level))):
-            self.logger.info('checkSuccess: Switch command was successful')
+        sleep(2)
+        status = self.getBufferStatus(device_id)
+        id = status.get('id_from', '')
+        cmd1 = status.get('cmd1', '')
+        cmd2 = status.get('cmd2', '')
+        if ((id == device_id) and (cmd1 == sent_cmd1) and (cmd2 == sent_cmd2)):
+            self.logger.info("checkSuccess: Response device {} cmd {} cmd2 {} SUCCESS".format(id, cmd1, cmd2))
             return True
-        else:
-            self.logger.error('checkSuccess: Switch command failed')
-            self.logger.info('checkSuccess: Device compare {} to {}'.format(deviceId, statusDevice))
-            self.logger.info('checkSuccess: Level compare {} to {}'.format(self.brightnessToHex(level), statusCmdArg))
-            return False
+
+        self.logger.info("checkSuccess: No valid response found for device {} cmd {} cmd2 {}".format(device_id, sent_cmd1, sent_cmd2))
+        return False
 
 
     ## Clear the hub buffer
@@ -472,9 +822,9 @@ class Hub(object):
    #  01 as controller/master
    #  03 as controller with im initiates all linking or as responder when another device initiates all linking
    #  FF deletes the all link
-    def startAllLinking(self, linkType):
-        self.logger.info("\nstartAllLinking for type " + linkType)
-        self.directCommandHub('0264' + linkType)
+    def startAllLinking(self, linkType, groupId):
+        self.logger.info("\nstartAllLinking for type {} group {}".format(linkType, groupId))
+        self.directCommandHub('0264' + linkType + groupId)
        # TODO: read response
         #    Byte Value Meaning
         #1 0x02 Echoed Start of IM Command
@@ -509,10 +859,11 @@ class Hub(object):
 
 
 ### Group Lighting Functions - note, groups cannot be dimmed. They can be linked in dimmed mode.
+### Valid group id 1-255 (decimal)
 class Group():
 
     def __init__(self, hub, groupId):
-        self.groupId = groupId.zfill(2)
+        self.groupId = groupId
         self.hub = hub
         self.logger = hub.logger
 
@@ -521,10 +872,10 @@ class Group():
         self.logger.info("\ngroupOn: group {}".format(self.groupId))
         self.sceneCommand('11')
 
-        #time.sleep(2)
+        #sleep(2)
         #status = self.hub.getBufferStatus()
 
-        #success = self.checkSuccess(deviceId, level)
+        #success = self.checkSuccess(deviceId, '11', self.hub.brightnessToHex(level))
         ### Todo - probably can't check this way, need to do a clean up and check status of each one, etc.
         #if (success):
         #    self.logger.info("groupOn: Group turned on successfully")
@@ -537,9 +888,9 @@ class Group():
         self.logger.info("\ngroupOff: group {}".format(self.groupId))
         self.sceneCommand('13')
 
-        #time.sleep(2)
+        #sleep(2)
         #status = self.hub.getBufferStatus()
-        #success = self.checkSuccess(deviceId, level)
+        #success = self.checkSuccess(deviceId, '13', self.hub.brightnessToHex(level))
         ### Todo - probably can't check this way, need to do a clean up and check status of each one, etc.
         #if (success):
         #    self.logger.info("groupOff: Group turned off successfully")
@@ -556,7 +907,6 @@ class Group():
 
     # Enter linking mode for a group
     # Press and hold button on device after sending this command
-    ## @TODO UNTESTED - IN DEVELOPMENT
     def enterLinkMode(self):
         self.logger.info("\nenterLinkMode Group {}".format(self.groupId));
         self.sceneCommand('09')
@@ -568,8 +918,7 @@ class Group():
 
 
     # Enter unlinking mode for a group
-    ## @TODO UNTESTED - IN DEVELOPMENT
-    def enterUnlinkMode(self,):
+    def enterUnlinkMode(self):
         self.logger.info("\nenterUnlinkMode Group {}".format(self.groupId));
         self.sceneCommand('0A')
         # should send http://0.0.0.0/0?0A01=I=0
@@ -580,7 +929,6 @@ class Group():
 
 
     # Cancel linking or unlinking mode
-    ## @TODO UNTESTED - IN DEVELOPMENT
     def cancelLinkUnlinkMode(self):
         self.logger.info("\ncancelLinkUnlinkMode");
         self.sceneCommand('08')
@@ -600,6 +948,31 @@ class Switch():
         self.logger = hub.logger
 
 
+   ## @TODO IN DEVELOPMENT
+   ### TODO listen for linked page 35 http://cache.insteon.com/developer/2242-222dev-062013-en.pdf
+   ## Begin all linking
+   # linkType:
+   #  00 as responder/slave
+   #  01 as controller/master
+   #  03 as controller with im initiates all linking or as responder when another device initiates all linking
+   #  FF deletes the all link
+    def startAllLinking(self, linkType, groupId):
+        self.logger.info("\nstartAllLinking for device {} type {} group {}".format(self.deviceId, linkType, groupId))
+        self.hub.directCommand(self.deviceId, '02', '64' + linkType + groupId)
+       # TODO: read response
+        #    Byte Value Meaning
+        #1 0x02 Echoed Start of IM Command
+        #2 0x64 Echoed IM Command Number
+        #3 <Code> Echoed <Code>
+        #4 <ALL-Link Group> Echoed <ALL-Link Group>
+        #5 <ACK/NAK> 0x06 (ACK) if the IM executed the Command correctly
+        #0x15 (NAK) if an error occurred
+
+    def cancelAllLinking(self):
+        self.logger.info("\ncancelAllLinking for device {}".format(self.deviceId))
+        self.hub.directCommand(self.deviceId, '02', '65')
+
+
     def status(self, returnLED = 0):
         status = self.hub.getDeviceStatus(self.deviceId, returnLED)
         self.logger.info("\nDimmer {} status: {}".format(self.deviceId, pprint.pformat(status)))
@@ -612,7 +985,7 @@ class Switch():
 
         self.hub.directCommand(self.deviceId, '11', 'FF')
 
-        success = self.hub.checkSuccess(self.deviceId, 'FF')
+        success = self.hub.checkSuccess(self.deviceId, '11', 'FF')
 
         if (success):
             self.logger.info("Switch {} on: Light turned on successfully".format(self.deviceId))
@@ -628,7 +1001,7 @@ class Switch():
 
         self.hub.directCommand(self.deviceId, '13', 'FF')
 
-        success = self.hub.checkSuccess(self.deviceId, 'FF')
+        success = self.hub.checkSuccess(self.deviceId, '13', 'FF')
 
         if (success):
             self.logger.info("Switch {} off: Light turned off successfully".format(self.deviceId))
@@ -645,7 +1018,7 @@ class Switch():
 
         self.hub.directCommand(self.deviceId, '30', '00')
 
-        success = self.hub.checkSuccess(self.deviceId, '00')
+        success = self.hub.checkSuccess(self.deviceId, '30', '00')
 
 
 class Dimmer():
@@ -668,7 +1041,7 @@ class Dimmer():
 
         self.hub.directCommand(self.deviceId, '11', self.hub.brightnessToHex(level))
 
-        success = self.hub.checkSuccess(self.deviceId, self.hub.brightnessToHex(level))
+        success = self.hub.checkSuccess(self.deviceId, '11', self.hub.brightnessToHex(level))
         if (success):
             self.logger.info("Dimmer {} on: Light turned on successfully".format(self.deviceId))
         else:
@@ -682,7 +1055,7 @@ class Dimmer():
 
         self.hub.directCommand(self.deviceId, '12', '00')
 
-        success = self.hub.checkSuccess(self.deviceId, '00')
+        success = self.hub.checkSuccess(self.deviceId, '12', '00')
         if (success):
             self.logger.info("Dimmer {} onSaved: Light turned on successfully".format(self.deviceId))
         else:
@@ -697,7 +1070,7 @@ class Dimmer():
 
         self.hub.directCommand(self.deviceId, '13', '00')
 
-        success = self.hub.checkSuccess(self.deviceId, '00')
+        success = self.hub.checkSuccess(self.deviceId, '13', '00')
         if (success):
             self.logger.info("Dimmer {} off: Light turned off successfully".format(self.deviceId))
         else:
@@ -712,7 +1085,7 @@ class Dimmer():
 
         self.hub.directCommand(self.deviceId, '14', '00')
 
-        success = self.hub.checkSuccess(self.deviceId, '00')
+        success = self.hub.checkSuccess(self.deviceId, '14', '00')
         if (success):
             self.logger.info("Dimmer {} offInstant: Light turned off successfully".format(self.deviceId))
         else:
@@ -726,7 +1099,7 @@ class Dimmer():
         self.logger.info("\nDimmer {} changeLevel: level {}".format(self.deviceId, level))
 
         self.hub.directCommand(self.deviceId, '21', self.hub.brightnessToHex(level))
-        success = self.hub.checkSuccess(self.deviceId, self.hub.brightnessToHex(level))
+        success = self.hub.checkSuccess(self.deviceId, '21', self.hub.brightnessToHex(level))
         if (success):
             self.logger.info("Dimmer {} changeLevel: Light level changed successfully".format(self.deviceId))
         else:
@@ -740,7 +1113,7 @@ class Dimmer():
         self.logger.info("\nDimmer {} brightenStep".format(self.deviceId))
 
         self.hub.directCommand(self.deviceId, '15', '00')
-        success = self.hub.checkSuccess(self.deviceId, '00')
+        success = self.hub.checkSuccess(self.deviceId, '15', '00')
         if (success):
             self.logger.info("Dimmer {} brightenStep: Light brightened successfully".format(self.deviceId))
         else:
@@ -752,7 +1125,7 @@ class Dimmer():
         self.logger.info("\nDimmer {} dimStep".format(self.deviceId))
 
         self.hub.directCommand(self.deviceId, '16', '00')
-        success = self.hub.checkSuccess(self.deviceId, '00')
+        success = self.hub.checkSuccess(self.deviceId, '16', '00')
         if (success):
             self.logger.info("Dimmer {} dimStep: Light dimmed successfully".format(self.deviceId))
         else:
@@ -776,7 +1149,7 @@ class Dimmer():
 
         status = self.hub.getBufferStatus()
 
-        success = self.hub.checkSuccess(self.deviceId, level)
+        success = self.hub.checkSuccess(self.deviceId, '17', self.hub.brightnessToHex(level))
         if (success):
             self.logger.info("Dimmer {} startChange: Light started changing successfully".format(self.deviceId))
         else:
@@ -791,7 +1164,7 @@ class Dimmer():
 
         status = self.hub.getBufferStatus()
 
-        success = self.hub.checkSuccess(self.deviceId, '00')
+        success = self.hub.checkSuccess(self.deviceId, '18', '00')
         if (success):
             self.logger.info("Dimmer {} stopChange: Light stopped changing successfully".format(self.deviceId))
         else:
@@ -804,4 +1177,4 @@ class Dimmer():
 
         self.hub.directCommand(self.deviceId, '30', '00')
 
-        success = self.hub.checkSuccess(self.deviceId, '00')
+        success = self.hub.checkSuccess(self.deviceId, '30', '00')
