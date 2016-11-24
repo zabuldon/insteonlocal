@@ -1,9 +1,9 @@
-from distutils.core import setup
-
+#from distutils.core import setup
+from setuptools import setup
 setup(
   name = 'insteonlocal',
   py_modules = ['insteonlocal'],
-  version = '0.23',
+  version = '0.24',
   description = 'InsteonLocal allows local (non-cloud) control of the Insteon Hub 2245-222',
   author = 'Michael Long',
   author_email = 'mplong@gmail.com',
