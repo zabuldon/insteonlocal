@@ -6,3 +6,5 @@ logging.handlers
 sys
 json
 collections
+pkg_resources
+io

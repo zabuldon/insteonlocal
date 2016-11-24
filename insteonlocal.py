@@ -1,4 +1,4 @@
-import pprint, logging, logging.handlers, json, requests
+import pprint, logging, logging.handlers, json, requests, pkg_resources
 from collections import OrderedDict
 from time import sleep
 from io import StringIO
@@ -33,12 +33,12 @@ class Hub(object):
 
         self.buffer_status = OrderedDict()
 
-        json_cats = open('device_categories.json')
-        json_cats_str = json_cats.read()
+        json_cats = pkg_resources.resource_string(__name__, 'data/device_categories.json')
+        json_cats_str = json_cats.decode('utf-8')
         self.deviceCategories = json.loads(json_cats_str)
 
-        json_models = open('device_models.json')
-        json_models_str = json_models.read()
+        json_models = pkg_resources.resource_string(__name__, 'data/device_models.json')
+        json_models_str = json_models.decode('utf-8')
         self.deviceModels = json.loads(json_models_str)
 
         self.hubUrl = 'http://' + self.ip + ':' + self.port
