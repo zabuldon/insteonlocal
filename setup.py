@@ -14,6 +14,6 @@ setup(
   requires = ['requests', 'time', 'pprint', 'logging', 'logging.handlers', 'sys', 'json', 'collections'],
   provides = ['insteonlocal'],
   include_package_data=True, # use MANIFEST.in during install
-  packages=setuptools.find.packages(),
+#  packages=setup.find.packages(),
   zip_safe=False
 )
