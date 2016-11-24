@@ -3,10 +3,10 @@ README.md
 REFERENCES.txt
 config.py
 config.py.example
-device_categories.json
-device_models.json
 example.py
 insteonlocal.py
 requirements.txt
 setup.cfg
 setup.py
+data/device_categories.json
+data/device_models.json

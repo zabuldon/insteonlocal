@@ -1,5 +1,5 @@
 include *.txt
 include *.md
 include *.py
-include *.json
+include data/*.json
 include *.example
