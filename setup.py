@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
   name = 'insteonlocal',
   py_modules = ['insteonlocal'],
-  version = '0.28',
+  version = '0.29',
   description = 'InsteonLocal allows local (non-cloud) control of the Insteon Hub 2245-222',
   author = 'Michael Long',
   author_email = 'mplong@gmail.com',
@@ -14,7 +14,8 @@ setup(
   requires = ['requests', 'time', 'pprint', 'logging', 'logging.handlers', 'sys', 'json', 'collections'],
   provides = ['insteonlocal'],
   install_requires = [],
-  packages=find_packages(exclude=['tests', 'tests.*']),
+#  packages=find_packages(exclude=['tests', 'tests.*']),
+  packages=['insteonlocal'],
   include_package_data=True, # use MANIFEST.in during install
-  zip_safe=False
+  zip_safe=False,
 )
