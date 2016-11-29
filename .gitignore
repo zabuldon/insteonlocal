@@ -1,4 +1,7 @@
 config.py
 __pycache__/
 .pypirc
-dist/
+/dist/
+/*.egg
+/*.egg-info
+*.pyc
