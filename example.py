@@ -1,7 +1,8 @@
 #!/Users/mlong/hassdev/bin/python3.5
 import time
 import pprint
-from insteonlocal import Hub
+from insteonlocal.Hub import Hub
+#import insteonlocal
 import config
 
 ## To being, create a file called config.py containing:

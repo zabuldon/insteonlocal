@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
   name = 'insteonlocal',
   py_modules = ['insteonlocal'],
-  version = '0.31',
+  version = '0.32',
   description = 'InsteonLocal allows local (non-cloud) control of the Insteon Hub 2245-222',
   author = 'Michael Long',
   author_email = 'mplong@gmail.com',
