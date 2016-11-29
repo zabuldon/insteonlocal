@@ -1,5 +1,6 @@
 include *.txt
 include *.md
 include *.py
+include insteonlocal/*.py
 include insteonlocal/data/*
 include *.example
