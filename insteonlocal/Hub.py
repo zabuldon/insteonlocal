@@ -299,15 +299,18 @@ class Hub(object):
         raw_text = raw_text.replace('<response><BS>', '')
         raw_text = raw_text.replace('</BS></response>', '')
         raw_text = raw_text.strip()
-        self.logger.info('getBufferStatus: Got raw text of: {}'.format(raw_text))
+        bufferLength = len(raw_text)
+        self.logger.info('getBufferStatus: Got raw text with size {} and contents: {}'.format(bufferLength, raw_text))
 
-        # the last byte in the buffer indicates where it stopped writing. checking for text after that
-        # position would show if the buffer has overlapped and allow ignoring the old stuff after
-        buffer_end = raw_text[-2:]
-        buffer_end_int = int(buffer_end, 16)
-        raw_text = raw_text[0:buffer_end_int]
-        self.logger.info('bufferEnd hex {} dec {}'.format(buffer_end, buffer_end_int))
-        self.logger.info('getBufferStatus: non wrapped {}'.format(raw_text))
+        if (bufferLength == 202):
+            # 2015 hub
+            # the last byte in the buffer indicates where it stopped writing. checking for text after that
+            # position would show if the buffer has overlapped and allow ignoring the old stuff after
+            buffer_end = raw_text[-2:]
+            buffer_end_int = int(buffer_end, 16)
+            raw_text = raw_text[0:buffer_end_int]
+            self.logger.info('bufferEnd hex {} dec {}'.format(buffer_end, buffer_end_int))
+            self.logger.info('getBufferStatus: non wrapped {}'.format(raw_text))
 
         self.buffer_status = OrderedDict()
 
