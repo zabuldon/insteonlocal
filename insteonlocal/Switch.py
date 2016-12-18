@@ -56,7 +56,7 @@ class Switch():
         return status
 
 
-    ## Turn light On
+    ## Turn Switch On
     def on(self):
         self.logger.info("\nSwitch {} on".format(self.deviceId))
 
@@ -65,14 +65,14 @@ class Switch():
         success = self.hub.checkSuccess(self.deviceId, '11', 'FF')
 
         if (success):
-            self.logger.info("Switch {} on: Light turned on successfully".format(self.deviceId))
+            self.logger.info("Switch {} on: Switch turned on successfully".format(self.deviceId))
         else:
-            self.logger.error("Switch {} on: Light did not turn on".format(self.deviceId))
+            self.logger.error("Switch {} on: Switch did not turn on".format(self.deviceId))
 
         return success
 
 
-    ## Turn light Off
+    ## Turn Switch Off
     def off(self):
         self.logger.info("\nSwitch {} off".format(self.deviceId))
 
@@ -81,9 +81,9 @@ class Switch():
         success = self.hub.checkSuccess(self.deviceId, '13', 'FF')
 
         if (success):
-            self.logger.info("Switch {} off: Light turned off successfully".format(self.deviceId))
+            self.logger.info("Switch {} off: Switch turned off successfully".format(self.deviceId))
         else:
-            self.logger.error("Switch {} off: Light did not turn off".format(self.deviceId))
+            self.logger.error("Switch {} off: Switch did not turn off".format(self.deviceId))
 
         return success
 
