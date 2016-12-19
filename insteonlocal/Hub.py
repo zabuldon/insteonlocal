@@ -31,7 +31,7 @@ class Hub(object):
         self.ip = ip
         self.username = username
         self.password = password
-        self.port = port
+        self.port = str(port)
         self.http_code = 0
         self.timeout = timeout
 
