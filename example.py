@@ -1,5 +1,5 @@
 #!/Users/mlong/hassdev/bin/python3.5
-import time
+import time,requests,sys
 import pprint
 from insteonlocal.Hub import Hub
 #import insteonlocal
@@ -10,7 +10,16 @@ import config
 #password = "hub's password"
 # or comment out the import config and manually specify below
 
-hub = Hub('192.168.1.160', config.username, config.password, '25105', '/tmp/insteonlocal.log', True)
+try:
+    hub = Hub('192.168.1.160', config.username, config.password, '25105', '/tmp/insteonlocal.log', True)
+    buffer = hub.getBufferStatus()
+except requests.exceptions.RequestException as e:
+   if hub.http_code == 401:
+       print("Unauthorized...check user/pass for hub\n")
+       sys.exit(1)
+   else:
+       print(e)
+       sys.exit(1)
 
 #hub.getLinked()
 

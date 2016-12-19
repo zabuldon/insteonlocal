@@ -33,6 +33,7 @@ class Hub(object):
         self.username = username
         self.password = password
         self.port = port
+        self.http_code = 0
 
         self.buffer_status = OrderedDict()
 
@@ -76,15 +77,21 @@ class Hub(object):
     ## Send raw command via post
     def postDirectCommand(self, commandUrl):
         self.logger.info("postDirectCommand: {}".format(commandUrl))
-        return requests.post(commandUrl,
+        r = requests.post(commandUrl,
             auth=requests.auth.HTTPBasicAuth(self.username, self.password))
+        self.http_code = r.status_code
+        r.raise_for_status()
+        return r
 
 
     ## Send raw comment via get
     def getDirectCommand(self, commandUrl):
         self.logger.info("getDirectCommand: {}".format(commandUrl))
-        return requests.get(commandUrl,
+        r = requests.get(commandUrl,
             auth=requests.auth.HTTPBasicAuth(self.username, self.password))
+        self.http_code = r.status_code
+        r.raise_for_status()
+        return r
 
 
     # Wrapper to send posted direct command and get response
