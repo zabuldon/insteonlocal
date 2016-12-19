@@ -2,8 +2,9 @@
 import time,requests,sys
 import pprint
 from insteonlocal.Hub import Hub
-#import insteonlocal
 import config
+import logging
+from sys import stdout
 
 ## To being, create a file called config.py containing:
 #username = "hub's username"
@@ -11,7 +12,20 @@ import config
 # or comment out the import config and manually specify below
 
 try:
-    hub = Hub('192.168.1.160', config.username, config.password, '25105', '/tmp/insteonlocal.log', True)
+    FORMAT = '[%(asctime)s] (%(filename)s:%(lineno)s) %(message)s'
+    #logging.basicConfig(format=FORMAT, level=logging.DEBUG, filename='/tmp/insteonlocal.log')
+    logging.basicConfig(format=FORMAT, level=logging.DEBUG)
+    logger = logging.getLogger('')
+
+    # create hub object
+    hub = Hub(
+        '192.168.1.160', 
+        config.username, 
+        config.password, 
+        '25105', #port 
+        10, #timeout
+        logger
+    )
     buffer = hub.getBufferStatus()
 except requests.exceptions.RequestException as e:
    if hub.http_code == 401:

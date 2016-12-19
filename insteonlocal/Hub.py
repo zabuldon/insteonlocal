@@ -2,7 +2,6 @@ import pprint, logging, logging.handlers, json, requests, pkg_resources
 from collections import OrderedDict
 from time import sleep
 from io import StringIO
-from sys import stdout
 from insteonlocal.Switch import Switch
 from insteonlocal.Group import Group
 from insteonlocal.Dimmer import Dimmer
@@ -28,12 +27,13 @@ from insteonlocal.Dimmer import Dimmer
 # switch on updates/broadcasts
 
 class Hub(object):
-    def __init__(self, ip, username, password, port="25105", logfile="/tmp/insteonlocal.log", consoleLog = False):
+    def __init__(self, ip, username, password, port="25105", timeout=10, logger=None):
         self.ip = ip
         self.username = username
         self.password = password
         self.port = port
         self.http_code = 0
+        self.timeout = timeout
 
         self.buffer_status = OrderedDict()
 
@@ -47,23 +47,11 @@ class Hub(object):
 
         self.hubUrl = 'http://' + self.ip + ':' + self.port
 
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)
-        fh = logging.FileHandler(logfile, mode='a')
-        fh.setLevel(logging.INFO)
-
-        formatter = logging.Formatter('[%(asctime)s] ' +
-                     '(%(filename)s:%(lineno)s) %(message)s',
-    				datefmt='%Y-%m-%d %H:%M:%S')
-        fh.setFormatter(formatter)
-
-        self.logger.addHandler(fh)
-
-        if (consoleLog):
-            ch = logging.StreamHandler(stream=stdout)
-            ch.setLevel(logging.INFO)
-            self.logger.addHandler(ch)
-
+        if logger == None:
+            self.logger = logging.getLogger('')
+            self.logger.setLevel(logging.INFO)
+        else:
+            self.logger = logger
 
     ## Convert numeric brightness percentage into hex for insteon
     def brightnessToHex(self, level):
@@ -78,6 +66,7 @@ class Hub(object):
     def postDirectCommand(self, commandUrl):
         self.logger.info("postDirectCommand: {}".format(commandUrl))
         r = requests.post(commandUrl,
+            timeout=self.timeout,
             auth=requests.auth.HTTPBasicAuth(self.username, self.password))
         self.http_code = r.status_code
         r.raise_for_status()
@@ -88,6 +77,7 @@ class Hub(object):
     def getDirectCommand(self, commandUrl):
         self.logger.info("getDirectCommand: {}".format(commandUrl))
         r = requests.get(commandUrl,
+            timeout=self.timeout,
             auth=requests.auth.HTTPBasicAuth(self.username, self.password))
         self.http_code = r.status_code
         r.raise_for_status()
@@ -792,7 +782,8 @@ class Hub(object):
         # Tell hub to clear buffer
         self.clearBuffer()
 
-        pprint.pprint(self.buffer_status)
+        #pprint.pprint(self.buffer_status)
+        self.logger.debug("getBufferStatus: {}".format(pprint.pformat(self.buffer_status)))
 
         if device_from:
             return return_record
