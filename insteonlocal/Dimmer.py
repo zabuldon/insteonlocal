@@ -24,8 +24,8 @@ class Dimmer():
 
     def status(self, return_led=0):
         """Get status from device"""
-        status = self.hub.getDeviceStatus(self.device_id, return_led)
-        self.logger.info("\nDimmer %s status: %s", self.device_id,
+        status = self.hub.get_device_status(self.device_id, return_led)
+        self.logger.info("Dimmer %s status: %s", self.device_id,
                          pprint.pformat(status))
         return status
 

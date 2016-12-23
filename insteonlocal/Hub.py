@@ -289,9 +289,17 @@ class Hub(object):
             level = '00'
         self.direct_command(device_id, '19', level)
 
-        sleep(2)
+        attempts = 1
+        sleep(1)
 
-        status = self.get_buffer_status()
+        status = self.get_buffer_status(device_id)
+        while not status['success'] and attempts < 9:
+            if attempts % 3 == 0:
+                self.direct_command(device_id, '19', level)
+            else:
+                sleep(1)
+            status = self.get_buffer_status(device_id)
+            attempts += 1
 
         return status
 
@@ -303,6 +311,8 @@ class Hub(object):
 
         # only used if device_from passed in
         return_record = OrderedDict()
+        return_record['success'] = False
+        return_record['error'] = True
 
         command_url = self.hub_url + '/buffstatus.xml'
         self.logger.info("get_buffer_status: %s", command_url)
@@ -815,6 +825,8 @@ class Hub(object):
             response_device_from = response_record.get('id_from', '')
             if device_from and device_from == response_device_from:
                 return_record = response_record
+                return_record['error'] = False
+                return_record['success'] = True
 
             self.buffer_status['msgs'].append(response_record)
 
@@ -826,6 +838,8 @@ class Hub(object):
 
         if device_from:
             return return_record
+
+        return self.buffer_status
 
 
     def check_success(self, device_id, sent_cmd1, sent_cmd2):

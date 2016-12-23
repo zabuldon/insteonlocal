@@ -35,7 +35,7 @@ except requests.exceptions.RequestException as e:
        print(e)
        sys.exit(1)
 
-hub.get_linked()
+#hub.get_linked()
 
 #insteonLocal.id_request('42902e')
 
@@ -77,8 +77,8 @@ dimmer1.beep()
 #dimmer1.off()
 
 # Get list of linked devices
-devices = hub.get_linked()
-pprint.pprint(devices)
+#devices = hub.get_linked()
+#pprint.pprint(devices)
 
 # Group example
 #group2 = hub.group("2")
@@ -92,6 +92,13 @@ switch1.beep()
 #switch1.beep()
 #switch1.beep()
 #switch1.off()
+#status = switch1.status()
+#pprint.pprint(status)
+switch1.on()
+status = switch1.status()
+print("new status\n")
+pprint.pprint(status)
+switch1.off()
 
 # switch join new group 03 - IN DEVeLOPMENT
 #group3 = hub.group("03")
@@ -101,7 +108,7 @@ switch1.beep()
 #switch1.start_all_linking("00", group3.groupId) #responder
 ##    b.direct_command("40565b", "01", group3.groupId)
 #time.sleep(2)
-hub.get_buffer_status()
+#hub.get_buffer_status()
 ##group3.cancel_link_unlink_mode()
 
 #hub.get_linked()
