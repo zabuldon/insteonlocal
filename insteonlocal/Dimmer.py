@@ -1,8 +1,5 @@
-import pprint, logging, logging.handlers, json, requests, pkg_resources
-from collections import OrderedDict
-from time import sleep
-from io import StringIO
-from sys import stdout
+import pprint
+#from time import sleep
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -18,159 +15,185 @@ from sys import stdout
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 class Dimmer():
-
-    def __init__(self, hub, deviceId):
-        self.deviceId = deviceId.upper()
+    """This class defines an object for an INSTEON Dimmer"""
+    def __init__(self, hub, device_id):
+        self.device_id = device_id.upper()
         self.hub = hub
         self.logger = hub.logger
 
 
-    def status(self, returnLED = 0):
-        status = self.hub.getDeviceStatus(self.deviceId, returnLED)
-        self.logger.info("\nDimmer {} status: {}".format(self.deviceId, pprint.pformat(status)))
+    def status(self, return_led=0):
+        """Get status from device"""
+        status = self.hub.getDeviceStatus(self.device_id, return_led)
+        self.logger.info("\nDimmer %s status: %s", self.device_id,
+                         pprint.pformat(status))
         return status
 
 
-    ## Turn light On at saved ramp rate
     def on(self, level):
-        self.logger.info("\nDimmer {} on level {}".format(self.deviceId, level))
+        """Turn light on at saved ramp rate"""
+        self.logger.info("Dimmer %s on level %s", self.device_id, level)
 
-        self.hub.directCommand(self.deviceId, '11', self.hub.brightnessToHex(level))
+        self.hub.direct_command(self.device_id, '11', self.hub.brightness_to_hex(level))
 
-        success = self.hub.checkSuccess(self.deviceId, '11', self.hub.brightnessToHex(level))
-        if (success):
-            self.logger.info("Dimmer {} on: Light turned on successfully".format(self.deviceId))
+        success = self.hub.check_success(self.device_id, '11', self.hub.brightness_to_hex(level))
+        if success:
+            self.logger.info("Dimmer %s on: Light turned on successfully",
+                             self.device_id)
         else:
-            self.logger.error("Dimmer {} on: Light did not turn on".format(self.deviceId))
-
-        return success
-
-    ## Turn light On to Saved State - using "fast"
-    def onSaved(self):
-        self.logger.info("\nDimmer {} onSaved".format(self.deviceId))
-
-        self.hub.directCommand(self.deviceId, '12', '00')
-
-        success = self.hub.checkSuccess(self.deviceId, '12', '00')
-        if (success):
-            self.logger.info("Dimmer {} onSaved: Light turned on successfully".format(self.deviceId))
-        else:
-            self.logger.error("Dimmer {} onSaved: Light did not turn on".format(self.deviceId))
+            self.logger.error("Dimmer %s on: Light did not turn on", self.device_id)
 
         return success
 
 
-    ## Turn Light Off at saved ramp rate
+    def on_saved(self):
+        """Turn light on to saved state using 'fast'"""
+        self.logger.info("Dimmer %s on_saved", self.device_id)
+
+        self.hub.direct_command(self.device_id, '12', '00')
+
+        success = self.hub.check_success(self.device_id, '12', '00')
+        if success:
+            self.logger.info("Dimmer %s on_saved: Light turned on successfully",
+                             self.device_id)
+        else:
+            self.logger.error("Dimmer %s on_saved: Light did not turn on",
+                              self.device_id)
+
+        return success
+
+
     def off(self):
-        self.logger.info("\nDimmer {} off".format(self.deviceId))
+        """Turn light off at saved ramp rate"""
+        self.logger.info("Dimmer %s off", self.device_id)
 
-        self.hub.directCommand(self.deviceId, '13', '00')
+        self.hub.direct_command(self.device_id, '13', '00')
 
-        success = self.hub.checkSuccess(self.deviceId, '13', '00')
-        if (success):
-            self.logger.info("Dimmer {} off: Light turned off successfully".format(self.deviceId))
+        success = self.hub.check_success(self.device_id, '13', '00')
+        if success:
+            self.logger.info("Dimmer %s off: Light turned off successfully",
+                             self.device_id)
         else:
-            self.logger.error("Dimmer {} off: Light did not turn off".format(self.deviceId))
+            self.logger.error("Dimmer %s off: Light did not turn off",
+                              self.device_id)
 
         return success
 
 
-    ## Turn Light Off
-    def offInstant(self):
-        self.logger.info("\nDimmer {} offInstant".format(self.deviceId))
+    def off_instant(self):
+        """Turn light off"""
+        self.logger.info("Dimmer %s off_instant", self.device_id)
 
-        self.hub.directCommand(self.deviceId, '14', '00')
+        self.hub.direct_command(self.device_id, '14', '00')
 
-        success = self.hub.checkSuccess(self.deviceId, '14', '00')
-        if (success):
-            self.logger.info("Dimmer {} offInstant: Light turned off successfully".format(self.deviceId))
+        success = self.hub.check_success(self.device_id, '14', '00')
+        if success:
+            self.logger.info("Dimmer %s off_instant: Light turned off successfully",
+                             self.device_id)
         else:
-            self.logger.error("Dimmer {} offInstant: Light did not turn off".format(self.deviceId))
+            self.logger.error("Dimmer %s off_instant: Light did not turn off",
+                              self.device_id)
 
         return success
 
 
-    ## Change light level
-    def changeLevel(self, level):
-        self.logger.info("\nDimmer {} changeLevel: level {}".format(self.deviceId, level))
+    def change_level(self, level):
+        """Change light level"""
+        self.logger.info("Dimmer %S change_level: level %s", self.device_id,
+                         level)
 
-        self.hub.directCommand(self.deviceId, '21', self.hub.brightnessToHex(level))
-        success = self.hub.checkSuccess(self.deviceId, '21', self.hub.brightnessToHex(level))
-        if (success):
-            self.logger.info("Dimmer {} changeLevel: Light level changed successfully".format(self.deviceId))
+        self.hub.direct_command(self.device_id, '21',
+                                self.hub.brightness_to_hex(level))
+        success = self.hub.check_success(self.device_id, '21',
+                                         self.hub.brightness_to_hex(level))
+        if success:
+            self.logger.info("Dimmer %s change_level: Light level changed successfully",
+                             self.device_id)
         else:
-            self.logger.error("Dimmer {} changeLevel: Light level was not changed".format(self.deviceId))
+            self.logger.error("Dimmer %s change_level: Light level was not changed",
+                              self.device_id)
 
         return success
 
 
-    ## Brighten light by one step
-    def brightenStep(self):
-        self.logger.info("\nDimmer {} brightenStep".format(self.deviceId))
+    def brighten_step(self):
+        """Brighten light by one step"""
+        self.logger.info("Dimmer %S brighten_step", self.device_id)
 
-        self.hub.directCommand(self.deviceId, '15', '00')
-        success = self.hub.checkSuccess(self.deviceId, '15', '00')
-        if (success):
-            self.logger.info("Dimmer {} brightenStep: Light brightened successfully".format(self.deviceId))
+        self.hub.direct_command(self.device_id, '15', '00')
+        success = self.hub.check_success(self.device_id, '15', '00')
+        if success:
+            self.logger.info("Dimmer %S brighten_step: Light brightened successfully",
+                             self.device_id)
         else:
-            self.logger.error("Dimmer {} brightenStep: Light brightened failure".format(self.deviceId))
+            self.logger.error("Dimmer %S brighten_step: Light brightened failure",
+                              self.device_id)
 
 
-    ## Dim light by one step
-    def dimStep(self):
-        self.logger.info("\nDimmer {} dimStep".format(self.deviceId))
+    def dim_step(self):
+        """Dim light by one step"""
+        self.logger.info("Dimmer %S dim_step", self.device_id)
 
-        self.hub.directCommand(self.deviceId, '16', '00')
-        success = self.hub.checkSuccess(self.deviceId, '16', '00')
-        if (success):
-            self.logger.info("Dimmer {} dimStep: Light dimmed successfully".format(self.deviceId))
+        self.hub.direct_command(self.device_id, '16', '00')
+        success = self.hub.check_success(self.device_id, '16', '00')
+        if success:
+            self.logger.info("Dimmer %S dim_step: Light dimmed successfully",
+                             self.device_id)
         else:
-            self.logger.error("Dimmer {} dimStep: Light dim failure".format(self.deviceId))
+            self.logger.error("Dimmer %S dim_step: Light dim failure",
+                              self.device_id)
+
+        return success
 
 
-    ## Start changing light level manually
-    ## Direction should be 'up' or 'down'
-    def startChange(self, direction):
-        self.logger.info("\nDimmer {} startChange: {}".format(self.deviceId, direction))
+    def start_change(self, direction):
+        """Start changing light level manually. Direction should be 'up' or 'down'"""
+        self.logger.info("Dimmer %s start_change: %s", self.device_id, direction)
 
-        if (direction == 'up'):
+        if direction == 'up':
             level = '01'
-        elif (direction == 'down'):
+        elif direction == 'down':
             level = '00'
         else:
-            self.logger.error("\nDimmer {} startChange: {} is invalid, use up or down".format(self.deviceId, direction))
+            self.logger.error("Dimmer %s start_change: %s is invalid, use up or down",
+                              self.device_id, direction)
             return False
 
-        self.hub.directCommand(self.deviceId, '17', level)
-
-        status = self.hub.getBufferStatus()
-
-        success = self.hub.checkSuccess(self.deviceId, '17', self.hub.brightnessToHex(level))
-        if (success):
-            self.logger.info("Dimmer {} startChange: Light started changing successfully".format(self.deviceId))
+        self.hub.direct_command(self.device_id, '17', level)
+        success = self.hub.check_success(self.device_id, '17',
+                                         self.hub.brightness_to_hex(level))
+        if success:
+            self.logger.info("Dimmer %s start_change: Light started changing successfully",
+                             self.device_id)
         else:
-            self.logger.error("Dimmer {} startChange: Light did not change".format(self.deviceId))
+            self.logger.error("Dimmer %s start_change: Light did not change",
+                              self.device_id)
+
+        return success
 
 
-    ## Stop changing light level manually
-    def stopChange(self):
-        self.logger.info("\nDimmer {} stopChange".format(self.deviceId))
+    def stop_change(self):
+        """Stop changing light level manually"""
+        self.logger.info("Dimmer %s stop_change", self.device_id)
 
-        self.hub.directCommand(self.deviceId, '18', '00')
-
-        status = self.hub.getBufferStatus()
-
-        success = self.hub.checkSuccess(self.deviceId, '18', '00')
-        if (success):
-            self.logger.info("Dimmer {} stopChange: Light stopped changing successfully".format(self.deviceId))
+        self.hub.direct_command(self.device_id, '18', '00')
+        success = self.hub.check_success(self.device_id, '18', '00')
+        if success:
+            self.logger.info("Dimmer %s stop_change: Light stopped changing successfully",
+                             self.device_id)
         else:
-            self.logger.error("Dimmer {} stopChange: Light did not stop".format(self.deviceId))
+            self.logger.error("Dimmer %s stop_change: Light did not stop",
+                              self.device_id)
 
-    ## Make dimmer beep
-    ## Not all devices suppot this
+        return success
+
+
     def beep(self):
-        self.logger.info("\nDimmer() beep".format(self.deviceId))
+        """Make dimmer beep. Not all devices support this"""
+        self.logger.info("Dimmer %s beep", self.device_id)
 
-        self.hub.directCommand(self.deviceId, '30', '00')
+        self.hub.direct_command(self.device_id, '30', '00')
 
-        success = self.hub.checkSuccess(self.deviceId, '30', '00')
+        success = self.hub.check_success(self.device_id, '30', '00')
+
+        return success

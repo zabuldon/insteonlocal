@@ -26,7 +26,7 @@ try:
         10, #timeout
         logger
     )
-    buffer = hub.getBufferStatus()
+    buffer = hub.get_buffer_status()
 except requests.exceptions.RequestException as e:
    if hub.http_code == 401:
        print("Unauthorized...check user/pass for hub\n")
@@ -35,50 +35,50 @@ except requests.exceptions.RequestException as e:
        print(e)
        sys.exit(1)
 
-#hub.getLinked()
+hub.get_linked()
 
-#insteonLocal.idRequest('42902e')
+#insteonLocal.id_request('42902e')
 
-#insteonLocal.getDeviceStatus('42902e')
+#insteonLocal.get_device_status('42902e')
 
-#modelInfo = insteonLocal.getDeviceCategory("00")
+#modelInfo = insteonLocal.get_device_category("00")
 #if ("name" in modelInfo):
 #    print("Got name of " + modelInfo["name"])
 #pprint.pprint(modelInfo)
 
 # Dimmer example
-#dimmer1 = hub.dimmer('42902e')
-#dimmer1.beep()
+dimmer1 = hub.dimmer('42902e')
+dimmer1.beep()
 #dimmer1.on(25)
 #dimmer1.status(0)
 #dimmer1.status(1)
-#dimmer1.brightenStep()
-#dimmer1.brightenStep()
-#dimmer1.brightenStep()
-#dimmer1.brightenStep()
-#dimmer1.dimStep()
-#dimmer1.dimStep()
-#dimmer1.dimStep()
-#dimmer1.changeLevel(75)
-#dimmer1.offInstant()
-#dimmer1.onSaved()
+#dimmer1.brighten_step()
+#dimmer1.brighten_step()
+#dimmer1.brighten_step()
+#dimmer1.brighten_step()
+#dimmer1.dim_sS\tep()
+#dimmer1.dim_step()
+#dimmer1.dim_step()
+#dimmer1.change_level(75)
+#dimmer1.off_instant()
+#dimmer1.on_saved()
 #dimmer1.on(75)
-#dimmer1.startChange('down')
+#dimmer1.start_change('down')
 #time.sleep(1)
-#dimmer1.stopChange()
+#dimmer1.stop_change()
 #time.sleep(2)
 #dimmer1.on(10)
-#dimmer1.startChange('up')
+#dimmer1.start_change('up')
 #time.sleep(1)
-#dimmer1.stopChange()
+#dimmer1.stop_change()
 #time.sleep(2)
-#dimmer1.offInstant()
+#dimmer1.off_instant()
 #time.sleep(1)
 #dimmer1.off()
 
 # Get list of linked devices
-#devices = hub.getLinked()
-#pprint.pprint(devices)
+devices = hub.get_linked()
+pprint.pprint(devices)
 
 # Group example
 #group2 = hub.group("2")
@@ -93,15 +93,15 @@ switch1.beep()
 #switch1.beep()
 #switch1.off()
 
-# switch join new group 03
+# switch join new group 03 - IN DEVeLOPMENT
 #group3 = hub.group("03")
-##group3.enterLinkMode()
-#hub.startAllLinking("01", group3.groupId) #controller
+##group3.enter_link_mode()
+#hub.start_all_linking("01", group3.groupId) #controller
 #switch1 = hub.switch('40565b')
-#switch1.startAllLinking("00", group3.groupId) #responder
-##    b.directCommand("40565b", "01", group3.groupId)
+#switch1.start_all_linking("00", group3.groupId) #responder
+##    b.direct_command("40565b", "01", group3.groupId)
 #time.sleep(2)
-hub.getBufferStatus()
-##group3.cancelLinkUnlinkMode()
+hub.get_buffer_status()
+##group3.cancel_link_unlink_mode()
 
-#hub.getLinked()
+#hub.get_linked()

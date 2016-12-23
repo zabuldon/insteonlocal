@@ -1,8 +1,4 @@
-import pprint, logging, logging.handlers, json, requests, pkg_resources
-from collections import OrderedDict
-from time import sleep
-from io import StringIO
-from sys import stdout
+import pprint
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -18,9 +14,9 @@ from sys import stdout
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 class Switch():
-
-    def __init__(self, hub, deviceId):
-        self.deviceId = deviceId
+    """Creates a Switch object representing an INStEON Toggle Device"""
+    def __init__(self, hub, device_id):
+        self.device_id = device_id
         self.hub = hub
         self.logger = hub.logger
 
@@ -28,14 +24,17 @@ class Switch():
    ## @TODO IN DEVELOPMENT
    ### TODO listen for linked page 35 http://cache.insteon.com/developer/2242-222dev-062013-en.pdf
    ## Begin all linking
-   # linkType:
+   # link type:
    #  00 as responder/slave
    #  01 as controller/master
-   #  03 as controller with im initiates all linking or as responder when another device initiates all linking
+   #  03 as controller with im initiates all linking or as responder when
+   #      another device initiates all linking
    #  FF deletes the all link
-    def startAllLinking(self, linkType, groupId):
-        self.logger.info("\nstartAllLinking for device {} type {} group {}".format(self.deviceId, linkType, groupId))
-        self.hub.directCommand(self.deviceId, '02', '64' + linkType + groupId)
+    def start_all_linking(self, link_type, group_id):
+        """Start all linking"""
+        self.logger.info("Start_all_linking for device %s type %s group %s",
+                         self.device_id, link_type, group_id)
+        self.hub.direct_command(self.device_id, '02', '64' + link_type + group_id)
        # TODO: read response
         #    Byte Value Meaning
         #1 0x02 Echoed Start of IM Command
@@ -45,54 +44,63 @@ class Switch():
         #5 <ACK/NAK> 0x06 (ACK) if the IM executed the Command correctly
         #0x15 (NAK) if an error occurred
 
-    def cancelAllLinking(self):
-        self.logger.info("\ncancelAllLinking for device {}".format(self.deviceId))
-        self.hub.directCommand(self.deviceId, '02', '65')
+
+    def cancel_all_linking(self):
+        """Cancel all linking"""
+        self.logger.info("Cancel_all_linking for device %s", self.device_id)
+        self.hub.direct_command(self.device_id, '02', '65')
 
 
-    def status(self, returnLED = 0):
-        status = self.hub.getDeviceStatus(self.deviceId, returnLED)
-        self.logger.info("\nDimmer {} status: {}".format(self.deviceId, pprint.pformat(status)))
+    def status(self, return_led=0):
+        """Get status from device"""
+        status = self.hub.get_device_status(self.device_id, return_led)
+        self.logger.info("Dimmer %s status: %s", self.device_id,
+                         pprint.pformat(status))
         return status
 
 
-    ## Turn Switch On
     def on(self):
-        self.logger.info("\nSwitch {} on".format(self.deviceId))
+        """ Turn switch on"""
+        self.logger.info("Switch %s on", self.device_id)
 
-        self.hub.directCommand(self.deviceId, '11', 'FF')
+        self.hub.direct_command(self.device_id, '11', 'FF')
 
-        success = self.hub.checkSuccess(self.deviceId, '11', 'FF')
+        success = self.hub.check_success(self.device_id, '11', 'FF')
 
-        if (success):
-            self.logger.info("Switch {} on: Switch turned on successfully".format(self.deviceId))
+        if success:
+            self.logger.info("Switch %s on: Switch turned on successfully",
+                             self.device_id)
         else:
-            self.logger.error("Switch {} on: Switch did not turn on".format(self.deviceId))
+            self.logger.error("Switch %s on: Switch did not turn on",
+                              self.device_id)
 
         return success
 
 
-    ## Turn Switch Off
     def off(self):
-        self.logger.info("\nSwitch {} off".format(self.deviceId))
+        """Turn switch off"""
+        self.logger.info("Switch {} off".format(self.device_id))
 
-        self.hub.directCommand(self.deviceId, '13', 'FF')
+        self.hub.direct_command(self.device_id, '13', 'FF')
 
-        success = self.hub.checkSuccess(self.deviceId, '13', 'FF')
+        success = self.hub.check_success(self.device_id, '13', 'FF')
 
-        if (success):
-            self.logger.info("Switch {} off: Switch turned off successfully".format(self.deviceId))
+        if success:
+            self.logger.info("Switch %s off: Switch turned off successfully",
+                             self.device_id)
         else:
-            self.logger.error("Switch {} off: Switch did not turn off".format(self.deviceId))
+            self.logger.error("Switch %s off: Switch did not turn off",
+                              self.device_id)
 
         return success
 
 
-    ## Make switch beep
-    ## Not all devices suppot this
     def beep(self):
-        self.logger.info("\nSwitch() beep".format(self.deviceId))
+        """Make switch beep. Not all devices support this"""
+        self.logger.info("Switch %s beep", self.device_id)
 
-        self.hub.directCommand(self.deviceId, '30', '00')
+        self.hub.direct_command(self.device_id, '30', '00')
 
-        success = self.hub.checkSuccess(self.deviceId, '30', '00')
+        success = self.hub.check_success(self.device_id, '30', '00')
+
+        return success

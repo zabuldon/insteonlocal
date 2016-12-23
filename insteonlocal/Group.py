@@ -1,8 +1,5 @@
-import pprint, logging, logging.handlers, json, requests, pkg_resources
-from collections import OrderedDict
-from time import sleep
-from io import StringIO
-from sys import stdout
+#import pprint
+#from time import sleep
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -17,83 +14,83 @@ from sys import stdout
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>
 
-
-### Group Lighting Functions - note, groups cannot be dimmed. They can be linked in dimmed mode.
-### Valid group id 1-255 (decimal)
 class Group():
-
-    def __init__(self, hub, groupId):
-        self.groupId = groupId
+    """Group lighting functios. Note: groups cannot be dimmed. They can be
+    linked in dimmed mode. Valid group id 1-255 (decimal)"""
+    def __init__(self, hub, group_id):
+        self.group_id = group_id
         self.hub = hub
         self.logger = hub.logger
 
-    # Turn group on
     def on(self):
-        self.logger.info("\ngroupOn: group {}".format(self.groupId))
-        self.sceneCommand('11')
+        """Turn group on"""
+        self.logger.info("\ngroupOn: group %s", self.group_id)
+        self.scene_command('11')
 
         #sleep(2)
-        #status = self.hub.getBufferStatus()
+        #status = self.hub.get_buffer_status()
 
-        #success = self.checkSuccess(deviceId, '11', self.hub.brightnessToHex(level))
-        ### Todo - probably can't check this way, need to do a clean up and check status of each one, etc.
+        #success = self.check_success(device_id, '11', self.hub.brightness_to_hex(level))
+        ### Todo - probably can't check this way, need to do a clean up and
+        # check status of each one, etc.
         #if (success):
         #    self.logger.info("groupOn: Group turned on successfully")
         #else:
         #    self.logger.error("groupOn: Group did not turn on")
 
 
-    # Turn group off
     def off(self):
-        self.logger.info("\ngroupOff: group {}".format(self.groupId))
-        self.sceneCommand('13')
+        """Turn group off"""
+        self.logger.info("\ngroupOff: group %s", self.group_id)
+        self.scene_command('13')
 
         #sleep(2)
-        #status = self.hub.getBufferStatus()
-        #success = self.checkSuccess(deviceId, '13', self.hub.brightnessToHex(level))
-        ### Todo - probably can't check this way, need to do a clean up and check status of each one, etc.
+        #status = self.hub.get_buffer_status()
+        #success = self.checkSuccess(device_id, '13', self.hub.brightness_to_hex(level))
+        ### Todo - probably can't check this way, need to do a clean up and
+        # check status of each one, etc.
         #if (success):
         #    self.logger.info("groupOff: Group turned off successfully")
         #else:
         #    self.logger.error("groupOff: Group did not turn off")
 
 
-    # Wrapper to send posted scene command and get response
-    def sceneCommand(self, command):
-        self.logger.info("sceneCommand: Group {} Command {}".format(self.groupId, command))
-        commandUrl = self.hub.hubUrl + '/0?' + command + self.groupId + "=I=0"
-        return self.hub.postDirectCommand(commandUrl)
+    def scene_command(self, command):
+        """Wrapper to send posted scene command and get response"""
+        self.logger.info("scene_command: Group %s Command %s", self.group_id, command)
+        command_url = self.hub.hub_url + '/0?' + command + self.group_id + "=I=0"
+        return self.hub.post_direct_command(command_url)
 
 
-    # Enter linking mode for a group
-    # Press and hold button on device after sending this command
-    def enterLinkMode(self):
-        self.logger.info("\nenterLinkMode Group {}".format(self.groupId));
-        self.sceneCommand('09')
+    def enter_link_mode(self):
+        """Enter linking mode for a group. Press and hold button on device
+        after sending this command"""
+        self.logger.info("enter_link_mode Group %s", self.group_id)
+        self.scene_command('09')
         # should send http://0.0.0.0/0?0901=I=0
 
         ## TODO check return status
-        status = self.hub.getBufferStatus()
+        status = self.hub.get_buffer_status()
         return status
 
 
-    # Enter unlinking mode for a group
-    def enterUnlinkMode(self):
-        self.logger.info("\nenterUnlinkMode Group {}".format(self.groupId));
-        self.sceneCommand('0A')
+    def enter_unlink_mode(self):
+        """Enter unlinking mode for a group"""
+        self.logger.info("enter_unlink_mode Group %s", self.group_id)
+        self.scene_command('0A')
         # should send http://0.0.0.0/0?0A01=I=0
 
         ## TODO check return status
-        status = self.hub.getBufferStatus()
+        status = self.hub.get_buffer_status()
         return status
 
 
-    # Cancel linking or unlinking mode
-    def cancelLinkUnlinkMode(self):
-        self.logger.info("\ncancelLinkUnlinkMode");
-        self.sceneCommand('08')
+    def cancel_link_unlink_mode(self):
+        """Cancel linking or unlinking mode"""
+        self.logger.info("cancel_link_unlink_mode")
+        self.scene_command('08')
         # should send http://0.0.0.0/0?08=I=0
 
         ## TODO check return status
-        status = self.hub.getBufferStatus()
+        status = self.hub.get_buffer_status()
         return status
