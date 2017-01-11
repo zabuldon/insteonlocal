@@ -3,6 +3,10 @@
 Python library for controlling Insteon Hub locally. This allows you to send direct commands to your Insteon Hub without having to go through the cloud, or obtain a developer API key 
 (which can be hard or impossible to get from Insteon)
 
+## Changes
+
+0.39 Initial stable release for use in Home Assistant
+
 ## Hubs
 
 This was developed and tested against the Insteon Hub 2245-222.
