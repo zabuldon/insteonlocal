@@ -6,7 +6,8 @@ import config
 import logging
 from sys import stdout
 
-## To being, create a file called config.py containing:
+## To begin, create a file called config.py containing:
+#host = "hub's ip"
 #username = "hub's username"
 #password = "hub's password"
 # or comment out the import config and manually specify below
@@ -19,7 +20,7 @@ try:
 
     # create hub object
     hub = Hub(
-        '192.168.1.160', 
+        config.host,
         config.username, 
         config.password, 
         '25105', #port 
@@ -47,34 +48,35 @@ except requests.exceptions.RequestException as e:
 #pprint.pprint(modelInfo)
 
 # Dimmer example
-dimmer1 = hub.dimmer('42902e')
+dimmer1 = hub.dimmer('30D927')
 dimmer1.beep()
-#dimmer1.on(25)
-#dimmer1.status(0)
-#dimmer1.status(1)
-#dimmer1.brighten_step()
-#dimmer1.brighten_step()
-#dimmer1.brighten_step()
-#dimmer1.brighten_step()
-#dimmer1.dim_sS\tep()
-#dimmer1.dim_step()
-#dimmer1.dim_step()
-#dimmer1.change_level(75)
-#dimmer1.off_instant()
-#dimmer1.on_saved()
-#dimmer1.on(75)
-#dimmer1.start_change('down')
-#time.sleep(1)
-#dimmer1.stop_change()
-#time.sleep(2)
-#dimmer1.on(10)
-#dimmer1.start_change('up')
-#time.sleep(1)
-#dimmer1.stop_change()
-#time.sleep(2)
-#dimmer1.off_instant()
-#time.sleep(1)
-#dimmer1.off()
+dimmer1.on(25)
+dimmer1.status(0)
+dimmer1.status(1)
+dimmer1.brighten_step()
+dimmer1.brighten_step()
+dimmer1.brighten_step()
+dimmer1.brighten_step()
+dimmer1.dim_step()
+dimmer1.dim_step()
+dimmer1.dim_step()
+dimmer1.change_level(75)
+dimmer1.status(0)
+dimmer1.off_instant()
+dimmer1.on_saved()
+dimmer1.on(75)
+dimmer1.start_change('down')
+time.sleep(1)
+dimmer1.stop_change()
+time.sleep(2)
+dimmer1.on(10)
+dimmer1.start_change('up')
+time.sleep(1)
+dimmer1.stop_change()
+time.sleep(2)
+dimmer1.off_instant()
+time.sleep(1)
+dimmer1.off()
 
 # Get list of linked devices
 #devices = hub.get_linked()
@@ -86,19 +88,19 @@ dimmer1.beep()
 #time.sleep(1)
 #group2.off()
 
-switch1 = hub.switch('40565b')
-#switch1.on()
-switch1.beep()
-#switch1.beep()
-#switch1.beep()
-#switch1.off()
-#status = switch1.status()
-#pprint.pprint(status)
-switch1.on()
-status = switch1.status()
-print("new status\n")
-pprint.pprint(status)
-switch1.off()
+# switch1 = hub.switch('40565b')
+# #switch1.on()
+# switch1.beep()
+# #switch1.beep()
+# #switch1.beep()
+# #switch1.off()
+# #status = switch1.status()
+# #pprint.pprint(status)
+# switch1.on()
+# status = switch1.status()
+# print("new status\n")
+# pprint.pprint(status)
+# switch1.off()
 
 # switch join new group 03 - IN DEVeLOPMENT
 #group3 = hub.group("03")
