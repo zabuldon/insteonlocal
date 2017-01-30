@@ -5,6 +5,8 @@ Python library for controlling Insteon Hub locally. This allows you to send dire
 
 ## Changes
 
+0.40 Added caching to get device status
+
 0.39 Initial stable release for use in Home Assistant
 
 ## Hubs
