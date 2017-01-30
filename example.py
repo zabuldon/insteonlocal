@@ -6,7 +6,8 @@ import config
 import logging
 from sys import stdout
 
-## To being, create a file called config.py containing:
+## To begin, create a file called config.py containing:
+#host = "hub's ip"
 #username = "hub's username"
 #password = "hub's password"
 # or comment out the import config and manually specify below
@@ -19,7 +20,7 @@ try:
 
     # create hub object
     hub = Hub(
-        '192.168.1.160', 
+        config.host,
         config.username, 
         config.password, 
         '25105', #port 

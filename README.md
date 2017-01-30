@@ -16,7 +16,7 @@ It may work for the Insteon Hub 2242-222, SmartLinc 2414N, or other hub with a H
 ## Devices
 
 This version of the library should work with Insteon dimmers and switches. It was developed against 
-2466SW ToggleLinc Relay (Swutch) and 2477D SwitchLinc Dual-Band Dimmer
+2466SW ToggleLinc Relay (Switch) and 2477D SwitchLinc Dual-Band Dimmer
 
 ## Unsupported Devices
 
