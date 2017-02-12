@@ -10,6 +10,7 @@ import requests
 from insteonlocal.Switch import Switch
 from insteonlocal.Group import Group
 from insteonlocal.Dimmer import Dimmer
+from insteonlocal.Fan import Fan
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -273,7 +274,7 @@ class Hub(object):
         return status
 
 
-    def get_device_status(self, device_id, return_led=0):
+    def get_device_status(self, device_id, return_led=0, level=None):
         """Do a separate query to get device status. This can tell if device
         is on/off, lighting level, etc."""
         # status['responseCmd2'] is lighting level
@@ -284,10 +285,11 @@ class Hub(object):
         self.logger.info("\nget_device_status for device %s", device_id)
         device_id = device_id.upper()
 
-        if return_led == 1:
-            level = '01'
-        else:
-            level = '00'
+        if not level:
+            if return_led == 1:
+                level = '01'
+            else:
+                level = '00'
         self.direct_command(device_id, '19', level)
 
         attempts = 1
@@ -952,3 +954,9 @@ class Hub(object):
         """Create switch object"""
         switch_obj = Switch(self, device_id)
         return switch_obj
+
+
+    def fan(self, device_id):
+        """Create fan object"""
+        fan_obj = Fan(self, device_id)
+        return fan_obj
