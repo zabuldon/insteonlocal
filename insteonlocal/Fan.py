@@ -33,9 +33,18 @@ class Fan():
         """Turn fan on at saved ramp rate"""
         self.logger.info("Fan %s on level %s", self.device_id, level)
 
-        self.hub.direct_command(self.device_id, '11', self.hub.brightness_to_hex(level), '02')
+        if level == 'off':
+            new_level = '00'
+        elif level == 'low':
+            new_level = '55'
+        elif level == 'medium':
+            new_level = 'AA'
+        elif level == 'high':
+            new_level = 'FF'
 
-        success = self.hub.check_success(self.device_id, '11', self.hub.brightness_to_hex(level))
+        self.hub.direct_command(self.device_id, '11', new_level, '02')
+
+        success = self.hub.check_success(self.device_id, '11', new_level)
         if success:
             self.logger.info("Fan %s on: Fan turned on successfully",
                              self.device_id)
