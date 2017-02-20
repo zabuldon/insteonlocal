@@ -10,6 +10,7 @@ import requests
 from insteonlocal.Switch import Switch
 from insteonlocal.Group import Group
 from insteonlocal.Dimmer import Dimmer
+from insteonlocal.Fan import Fan
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -104,6 +105,7 @@ class Hub(object):
         else:
             msg_type = '1'
             msg_type_desc = 'Extended'
+            extended_payload = extended_payload.ljust(28, '0')
 
         self.logger.info("direct_command: Device: %s Command: %s Command 2: %s "
                          "MsgType: %s", device_id, command, command2, msg_type_desc)
@@ -275,7 +277,7 @@ class Hub(object):
         return status
 
 
-    def get_device_status(self, device_id, return_led=0):
+    def get_device_status(self, device_id, return_led=0, level=None):
         """Do a separate query to get device status. This can tell if device
         is on/off, lighting level, etc."""
         # status['responseCmd2'] is lighting level
@@ -286,10 +288,11 @@ class Hub(object):
         self.logger.info("\nget_device_status for device %s", device_id)
         device_id = device_id.upper()
 
-        if return_led == 1:
-            level = '01'
-        else:
-            level = '00'
+        if not level:
+            if return_led == 1:
+                level = '01'
+            else:
+                level = '00'
 
         status = self.get_command_response_from_cache(device_id, '19', level)
 
@@ -593,15 +596,45 @@ class Hub(object):
 
             # Send Message (Pass through command to PLM)
             elif im_cmd == '62':
-                msg = msg + buffer_contents.read(14)
-
-                response_record['im_code_desc'] = 'Send Message'
-                response_record['raw'] = msg
+                msg = msg + buffer_contents.read(8)
                 response_record['id'] = msg[4:10]
                 response_record['flags'] = msg[10:12]
-                response_record['cmd1'] = msg[12:14]
-                response_record['cmd2'] = msg[14:16]
-                response_record['ack_or_nak'] = msg[16:18] # 06 ack 15 nak
+
+                # Standard Message
+                if response_record['flags'][0] == '0':
+                    response_record['im_code_desc'] = 'Send Standard Message'
+                    msg = msg + buffer_contents.read(6)
+                    response_record['cmd1'] = msg[12:14]
+                    response_record['cmd2'] = msg[14:16]
+                    response_record['ack_or_nak'] = msg[16:18] # 06 ack 15 nak
+
+                # Extended Message
+                elif response_record['flags'][0] == '1':
+                    response_record['im_code_desc'] = 'Send Extended Message'
+                    msg = msg + buffer_contents.read(34)
+                    response_record['cmd1'] = msg[12:14]
+                    response_record['cmd2'] = msg[14:16]
+                    response_record['user_data_1'] = msg[16:18]
+                    response_record['user_data_2'] = msg[18:20]
+                    response_record['user_data_3'] = msg[20:22]
+                    response_record['user_data_4'] = msg[22:24]
+                    response_record['user_data_5'] = msg[24:26]
+                    response_record['user_data_6'] = msg[26:28]
+                    response_record['user_data_7'] = msg[28:30]
+                    response_record['user_data_8'] = msg[30:32]
+                    response_record['user_data_9'] = msg[32:34]
+                    response_record['user_data_10'] = msg[34:36]
+                    response_record['user_data_11'] = msg[36:38]
+                    response_record['user_data_12'] = msg[38:40]
+                    response_record['user_data_13'] = msg[40:42]
+                    response_record['user_data_14'] = msg[42:44]
+                    response_record['ack_or_nak'] = msg[44:46] # 06 ack 15 nak
+
+                # Not implemented
+                else:
+                    self.logger.error('Not implemented, message flag %s' % response_record['flags'])
+
+                response_record['raw'] = msg
 
             # Send X10 (not implemented)
             elif im_cmd == '63':
@@ -957,3 +990,9 @@ class Hub(object):
         """Create switch object"""
         switch_obj = Switch(self, device_id)
         return switch_obj
+
+
+    def fan(self, device_id):
+        """Create fan object"""
+        fan_obj = Fan(self, device_id)
+        return fan_obj
