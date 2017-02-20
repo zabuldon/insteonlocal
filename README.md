@@ -5,7 +5,9 @@ Python library for controlling Insteon Hub locally. This allows you to send dire
 
 ## Changes
 
-0.40 Added caching to get device status
+0.41 Add support for FanLinc, better status support [@jawilson]
+
+0.40 Added caching to get device status [@wardcraigj]
 
 0.39 Initial stable release for use in Home Assistant
 
