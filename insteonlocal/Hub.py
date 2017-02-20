@@ -3,7 +3,7 @@ import logging
 import logging.handlers
 import json
 from collections import OrderedDict
-from time import sleep
+from time import sleep, time
 from io import StringIO
 import pkg_resources
 import requests
@@ -32,6 +32,8 @@ from insteonlocal.Fan import Fan
 # double tap scenes
 # switch on updates/broadcasts
 
+CACHE_TTL = 30 #30 seconds
+
 class Hub(object):
     """Class for local control of insteon hub"""
     def __init__(self, ip_addr, username, password, port="25105", timeout=10, logger=None):
@@ -41,6 +43,7 @@ class Hub(object):
         self.port = str(port)
         self.http_code = 0
         self.timeout = timeout
+        self.command_cache = {}
 
         self.buffer_status = OrderedDict()
 
@@ -290,22 +293,52 @@ class Hub(object):
                 level = '01'
             else:
                 level = '00'
-        self.direct_command(device_id, '19', level)
 
-        attempts = 1
-        sleep(1)
+        status = self.get_command_response_from_cache(device_id, '19', level)
 
-        status = self.get_buffer_status(device_id)
-        while not status['success'] and attempts < 9:
-            if attempts % 3 == 0:
-                self.direct_command(device_id, '19', level)
-            else:
-                sleep(1)
+        if not status:
+            self.direct_command(device_id, '19', level)
+
+            attempts = 1
+            sleep(1)
+
             status = self.get_buffer_status(device_id)
-            attempts += 1
+            while 'success' not in status and attempts < 9:
+                status = self.get_command_response_from_cache(device_id, '19', level)
+                if not status:
+                    if attempts % 3 == 0:
+                        self.direct_command(device_id, '19', level)
+                    else:
+                        sleep(1)
+                    status = self.get_buffer_status(device_id)
+                attempts += 1
 
         return status
 
+    def get_command_response_from_cache(self, device_id, command, command2):
+        """Gets response"""
+        key = self.create_key_from_command(device_id, command, command2)
+
+        if key not in self.command_cache:
+            return False
+
+        response = self.command_cache[key]
+
+        if response['ttl'] > int(time()):
+            return response['response']
+        else:
+            return False
+
+    def set_command_response_from_cache(self, response, device_id, command, command2):
+        """Sets response"""
+        key = self.create_key_from_command(device_id, command, command2)
+        ttl = int(time()) + CACHE_TTL
+
+        self.command_cache[key] = {'ttl': ttl, 'response': response}
+
+    def create_key_from_command(self, device_id, command, command2):
+        """Gets response"""
+        return device_id + command + command2
 
     def get_buffer_status(self, device_from=None):
         """Main method to read from buffer. Optionally pass in device to
@@ -862,6 +895,9 @@ class Hub(object):
                 return_record['success'] = True
 
             self.buffer_status['msgs'].append(response_record)
+
+            if 'cmd1' in response_record and 'cmd2' in response_record:
+                self.set_command_response_from_cache(response_record, device_from, response_record['cmd1'], response_record['cmd2'])
 
         # Tell hub to clear buffer
         self.clear_buffer()

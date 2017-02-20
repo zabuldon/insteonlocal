@@ -3,6 +3,12 @@
 Python library for controlling Insteon Hub locally. This allows you to send direct commands to your Insteon Hub without having to go through the cloud, or obtain a developer API key 
 (which can be hard or impossible to get from Insteon)
 
+## Changes
+
+0.40 Added caching to get device status
+
+0.39 Initial stable release for use in Home Assistant
+
 ## Hubs
 
 This was developed and tested against the Insteon Hub 2245-222.
@@ -12,7 +18,7 @@ It may work for the Insteon Hub 2242-222, SmartLinc 2414N, or other hub with a H
 ## Devices
 
 This version of the library should work with Insteon dimmers and switches. It was developed against 
-2466SW ToggleLinc Relay (Swutch) and 2477D SwitchLinc Dual-Band Dimmer
+2466SW ToggleLinc Relay (Switch) and 2477D SwitchLinc Dual-Band Dimmer
 
 ## Unsupported Devices
 
