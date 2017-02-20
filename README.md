@@ -19,12 +19,17 @@ It may work for the Insteon Hub 2242-222, SmartLinc 2414N, or other hub with a H
 
 ## Devices
 
-This version of the library should work with Insteon dimmers and switches. It was developed against 
+This version of the library should work with Insteon dimmers and switches, and FanLinc controls. It was developed against 
 2466SW ToggleLinc Relay (Switch) and 2477D SwitchLinc Dual-Band Dimmer
 
 ## Unsupported Devices
 
-At this time, only switches and dimmers are supported. 
+At this time, these devices are supported:
+
+-Switches
+-Dimmers
+-Receptacles
+-FanLinc
 
 To add support for future devices, we will need donations of equipment, or for device owners to directly 
 contribute code.
@@ -40,7 +45,6 @@ Unsupported devices include (but aren't limited to):
 * Door Sensor
 * Motion Sensor
 * Sprinkler Interfaces
-* Fan Controls
 * Smoke Bridge
 * I/O Module
 * Micro Dimmer
@@ -58,6 +62,7 @@ The library can currently do the following actions:
   * On
   * Off
   * Beep
+
 * Dimmers:
   * On (specified level)
   * On (fast: saved level)
@@ -69,6 +74,7 @@ The library can currently do the following actions:
   * Start changing (up or down)
   * Stop changing (up or down)
   * Beep 
+
 * Groups:
   * On
   * Off
