@@ -319,26 +319,37 @@ class Hub(object):
         """Gets response"""
         key = self.create_key_from_command(device_id, command, command2)
 
-        if key not in self.command_cache:
+        if device_id not in self.command_cache:
+            self.command_cache[device_id] = {}
+            return False
+        elif key not in self.command_cache[device_id]:
             return False
 
-        response = self.command_cache[key]
+        response = self.command_cache[device_id][key]
 
         if response['ttl'] > int(time()):
             return response['response']
         else:
             return False
 
+    def clear_device_command_cache(self, device_id):
+
+        self.command_cache[device_id] = {}
+
+
     def set_command_response_from_cache(self, response, device_id, command, command2):
         """Sets response"""
-        key = self.create_key_from_command(device_id, command, command2)
+        key = self.create_key_from_command(command, command2)
         ttl = int(time()) + CACHE_TTL
 
-        self.command_cache[key] = {'ttl': ttl, 'response': response}
+        if device_id not in self.command_cache:
+            self.command_cache[device_id] = {}
 
-    def create_key_from_command(self, device_id, command, command2):
-        """Gets response"""
-        return device_id + command + command2
+        self.command_cache[device_id][key] = {'ttl': ttl, 'response': response}
+
+    def create_key_from_command(self, command, command2):
+        """gets key"""
+        return command + command2
 
     def get_buffer_status(self, device_from=None):
         """Main method to read from buffer. Optionally pass in device to
