@@ -5,6 +5,8 @@ Python library for controlling Insteon Hub locally. This allows you to send dire
 
 ## Changes
 
+0.44 Bug fix for caching [@wardcraigj]
+
 0.43 Better caching [@wardcraigj]
 
 0.41 Add support for FanLinc, better status support [@jawilson]
