@@ -317,7 +317,7 @@ class Hub(object):
 
     def get_command_response_from_cache(self, device_id, command, command2):
         """Gets response"""
-        key = self.create_key_from_command(device_id, command, command2)
+        key = self.create_key_from_command(command, command2)
 
         if device_id not in self.command_cache:
             self.command_cache[device_id] = {}
