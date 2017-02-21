@@ -48,6 +48,7 @@ class Fan():
         if success:
             self.logger.info("Fan %s on: Fan turned on successfully",
                              self.device_id)
+            self.hub.clear_device_command_cache(self.device_id)
         else:
             self.logger.error("Fan %s on: Fan did not turn on", self.device_id)
 
@@ -63,6 +64,7 @@ class Fan():
         if success:
             self.logger.info("Fan %s off: Fan turned off successfully",
                              self.device_id)
+            self.hub.clear_device_command_cache(self.device_id)
         else:
             self.logger.error("Fan %s off: Fan did not turn off",
                               self.device_id)
