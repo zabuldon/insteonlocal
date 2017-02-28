@@ -33,6 +33,7 @@ from insteonlocal.Fan import Fan
 # switch on updates/broadcasts
 
 CACHE_TTL = 30 #30 seconds
+CACHE_FILE = 'devices.state'
 
 class Hub(object):
     """Class for local control of insteon hub"""
@@ -43,7 +44,6 @@ class Hub(object):
         self.port = str(port)
         self.http_code = 0
         self.timeout = timeout
-        self.command_cache = {}
 
         self.buffer_status = OrderedDict()
 
@@ -315,17 +315,27 @@ class Hub(object):
 
         return status
 
+    def get_cache_from_file(self):
+        with open(CACHE_FILE) as cachefile:
+            data = json.load(cachefile)
+        return data
+
+    def write_cache_file(self, cache):
+        with open(CACHE_FILE, 'w') as cachefile:
+            json.dump(cache, cachefile)
+
     def get_command_response_from_cache(self, device_id, command, command2):
         """Gets response"""
         key = self.create_key_from_command(command, command2)
+        command_cache = self.get_cache_from_file()
 
-        if device_id not in self.command_cache:
-            self.command_cache[device_id] = {}
+        if device_id not in command_cache:
+            command_cache[device_id] = {}
             return False
-        elif key not in self.command_cache[device_id]:
+        elif key not in command_cache[device_id]:
             return False
 
-        response = self.command_cache[device_id][key]
+        response = command_cache[device_id][key]
 
         if response['ttl'] > int(time()):
             return response['response']
@@ -334,7 +344,11 @@ class Hub(object):
 
     def clear_device_command_cache(self, device_id):
 
-        self.command_cache[device_id] = {}
+        command_cache = self.get_cache_from_file()
+
+        command_cache[device_id] = {}
+
+        self.write_cache_file(command_cache)
 
 
     def set_command_response_from_cache(self, response, device_id, command, command2):
@@ -342,10 +356,14 @@ class Hub(object):
         key = self.create_key_from_command(command, command2)
         ttl = int(time()) + CACHE_TTL
 
-        if device_id not in self.command_cache:
-            self.command_cache[device_id] = {}
+        command_cache = self.get_cache_from_file()
 
-        self.command_cache[device_id][key] = {'ttl': ttl, 'response': response}
+        if device_id not in command_cache:
+            command_cache[device_id] = {}
+
+        command_cache[device_id][key] = {'ttl': ttl, 'response': response}
+
+        self.write_cache_file(command_cache)
 
     def create_key_from_command(self, command, command2):
         """gets key"""
