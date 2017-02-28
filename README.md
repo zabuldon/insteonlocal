@@ -5,6 +5,8 @@ Python library for controlling Insteon Hub locally. This allows you to send dire
 
 ## Changes
 
+0.45 2017-02-28 Switching caching to be file-based [@wardcraigj]
+
 0.44 Bug fix for caching [@wardcraigj]
 
 0.43 Better caching [@wardcraigj]
