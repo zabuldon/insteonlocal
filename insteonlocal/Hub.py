@@ -45,6 +45,10 @@ class Hub(object):
         self.http_code = 0
         self.timeout = timeout
 
+        file = open(CACHE_FILE, "w+")
+        json.dump({}, file)
+        file.close()
+
         self.buffer_status = OrderedDict()
 
         json_cats = pkg_resources.resource_string(__name__, 'data/device_categories.json')
@@ -318,11 +322,15 @@ class Hub(object):
     def get_cache_from_file(self):
         with open(CACHE_FILE) as cachefile:
             data = json.load(cachefile)
+
+        cachefile.close()
         return data
 
     def write_cache_file(self, cache):
         with open(CACHE_FILE, 'w') as cachefile:
             json.dump(cache, cachefile)
+
+        cachefile.close()
 
     def get_command_response_from_cache(self, device_id, command, command2):
         """Gets response"""
