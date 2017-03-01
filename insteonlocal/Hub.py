@@ -34,7 +34,7 @@ from insteonlocal.Fan import Fan
 # switch on updates/broadcasts
 
 CACHE_TTL = 30 #30 seconds
-CACHE_FILE = 'devices.state'
+CACHE_FILE = '.state'
 
 class Hub(object):
     """Class for local control of insteon hub"""
@@ -45,10 +45,6 @@ class Hub(object):
         self.port = str(port)
         self.http_code = 0
         self.timeout = timeout
-
-        file = open(CACHE_FILE, "w+")
-        json.dump({}, file)
-        file.close()
 
         self.buffer_status = OrderedDict()
 
@@ -320,15 +316,21 @@ class Hub(object):
 
         return status
 
-    def get_cache_from_file(self):
-
+    def get_cache_from_file(self, deviceid):
+        filename = deviceid + CACHE_FILE
         cache_loaded = False
         attempts = 0
         data = {}
 
+        if not os.path.exists(filename):
+            file = open(filename, "w+")
+            json.dump({}, file)
+            file.close()
+            return {}
+
         while not cache_loaded:
             try:
-                with open(CACHE_FILE) as cachefile:
+                with open(filename) as cachefile:
                     data = json.load(cachefile)
                     cachefile.close()
 
@@ -342,21 +344,23 @@ class Hub(object):
                     attempts += 1
         return data
 
-    def write_cache_file(self, cache):
-        with open(CACHE_FILE + '.temp', 'w') as cachefile:
+    def write_cache_file(self, cache, device_id):
+        filename = device_id + CACHE_FILE
+
+        with open(filename + '.temp', 'w') as cachefile:
             json.dump(cache, cachefile)
 
         cachefile.close()
 
-        if os.path.exists(CACHE_FILE):
-            os.remove(CACHE_FILE)
+        if os.path.exists(filename):
+            os.remove(filename)
 
-        os.rename(CACHE_FILE + '.temp', CACHE_FILE)
+        os.rename(filename + '.temp', filename)
 
     def get_command_response_from_cache(self, device_id, command, command2):
         """Gets response"""
         key = self.create_key_from_command(command, command2)
-        command_cache = self.get_cache_from_file()
+        command_cache = self.get_cache_from_file(device_id)
 
         if device_id not in command_cache:
             command_cache[device_id] = {}
@@ -373,26 +377,29 @@ class Hub(object):
 
     def clear_device_command_cache(self, device_id):
 
-        command_cache = self.get_cache_from_file()
+        command_cache = self.get_cache_from_file(device_id)
 
         command_cache[device_id] = {}
 
-        self.write_cache_file(command_cache)
+        self.write_cache_file(command_cache, device_id)
 
 
     def set_command_response_from_cache(self, response, device_id, command, command2):
         """Sets response"""
+        if not device_id:
+            return False
+
         key = self.create_key_from_command(command, command2)
         ttl = int(time()) + CACHE_TTL
 
-        command_cache = self.get_cache_from_file()
+        command_cache = self.get_cache_from_file(device_id)
 
         if device_id not in command_cache:
             command_cache[device_id] = {}
 
         command_cache[device_id][key] = {'ttl': ttl, 'response': response}
 
-        self.write_cache_file(command_cache)
+        self.write_cache_file(command_cache, device_id)
 
     def create_key_from_command(self, command, command2):
         """gets key"""
