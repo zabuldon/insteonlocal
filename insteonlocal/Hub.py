@@ -8,6 +8,7 @@ from io import StringIO
 import pkg_resources
 import requests
 import os
+from random import randrange
 from insteonlocal.Switch import Switch
 from insteonlocal.Group import Group
 from insteonlocal.Dimmer import Dimmer
@@ -390,7 +391,7 @@ class Hub(object):
             return False
 
         key = self.create_key_from_command(command, command2)
-        ttl = int(time()) + CACHE_TTL
+        ttl = int(time()) + CACHE_TTL + randrange(0, 15)
 
         command_cache = self.get_cache_from_file(device_id)
 
