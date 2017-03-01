@@ -7,6 +7,7 @@ from time import sleep, time
 from io import StringIO
 import pkg_resources
 import requests
+import os
 from insteonlocal.Switch import Switch
 from insteonlocal.Group import Group
 from insteonlocal.Dimmer import Dimmer
@@ -320,17 +321,37 @@ class Hub(object):
         return status
 
     def get_cache_from_file(self):
-        with open(CACHE_FILE) as cachefile:
-            data = json.load(cachefile)
 
-        cachefile.close()
+        cache_loaded = False
+        attempts = 0
+        data = {}
+
+        while not cache_loaded:
+            try:
+                with open(CACHE_FILE) as cachefile:
+                    data = json.load(cachefile)
+                    cachefile.close()
+
+                cache_loaded = True
+                break
+            except json.JSONDecodeError:
+                self.logger.info("couldn't decode cachefile")
+                if attempts >= 3:
+                    cache_loaded = True
+                else:
+                    attempts += 1
         return data
 
     def write_cache_file(self, cache):
-        with open(CACHE_FILE, 'w') as cachefile:
+        with open(CACHE_FILE + '.temp', 'w') as cachefile:
             json.dump(cache, cachefile)
 
         cachefile.close()
+
+        if os.path.exists(CACHE_FILE):
+            os.remove(CACHE_FILE)
+
+        os.rename(CACHE_FILE + '.temp', CACHE_FILE)
 
     def get_command_response_from_cache(self, device_id, command, command2):
         """Gets response"""
