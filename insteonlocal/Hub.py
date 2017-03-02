@@ -35,6 +35,7 @@ from insteonlocal.Fan import Fan
 
 CACHE_TTL = 30 #30 seconds
 CACHE_FILE = '.state'
+LOCK_FILE = 'commands.lock'
 
 class Hub(object):
     """Class for local control of insteon hub"""
@@ -63,6 +64,9 @@ class Hub(object):
             self.logger.setLevel(logging.INFO)
         else:
             self.logger = logger
+
+        self.logger.info("Hub object initialized")
+
 
 
     def brightness_to_hex(self, level):
@@ -288,6 +292,7 @@ class Hub(object):
 
         self.logger.info("\nget_device_status for device %s", device_id)
         device_id = device_id.upper()
+        status = False
 
         if not level:
             if return_led == 1:
@@ -295,9 +300,11 @@ class Hub(object):
             else:
                 level = '00'
 
-        status = self.get_command_response_from_cache(device_id, '19', level)
+        if os.path.exists(device_id + CACHE_FILE):
+            status = self.get_command_response_from_cache(device_id, '19', level)
 
         if not status:
+            self.logger.info("no cached status for device %s", device_id)
             self.direct_command(device_id, '19', level)
 
             attempts = 1
@@ -313,8 +320,45 @@ class Hub(object):
                         sleep(1)
                     status = self.get_buffer_status(device_id)
                 attempts += 1
+        else:
+            self.logger.info("got cached status for device %s", device_id)
 
         return status
+
+    def rebuild_cache(self, device_id, command, command2):
+
+
+        if os.path.exists(LOCK_FILE):
+            self.logger.info("cache building locked - killing proc %s", device_id)
+            os._exit(0)
+        else:
+            self.logger.info("no command lock - creating lock file %s", device_id)
+            file = open(LOCK_FILE, "w+")
+            json.dump({}, file)
+            file.close()
+
+
+        self.logger.info("rebuilding cache for device %s", device_id)
+        self.direct_command(device_id, command, command2)
+
+
+        attempts = 1
+        sleep(1)
+
+        status = self.get_buffer_status(device_id)
+        while 'success' not in status and attempts < 9:
+            status = self.get_buffer_status(device_id)
+            if not status:
+                if attempts % 3 == 0:
+                    self.direct_command(device_id, command, command2)
+                else:
+                    sleep(1)
+                status = self.get_buffer_status(device_id)
+            attempts += 1
+
+        self.logger.info("removing cache lock file %s", device_id)
+        os.remove(LOCK_FILE)
+        os._exit(0)
 
     def get_cache_from_file(self, deviceid):
         filename = deviceid + CACHE_FILE
@@ -346,6 +390,7 @@ class Hub(object):
 
     def write_cache_file(self, cache, device_id):
         filename = device_id + CACHE_FILE
+        self.logger.info("writing cache file for %s", device_id)
 
         with open(filename + '.temp', 'w') as cachefile:
             json.dump(cache, cachefile)
@@ -369,11 +414,26 @@ class Hub(object):
             return False
 
         response = command_cache[device_id][key]
+        expired = False
+        if response['ttl'] < int(time()):
+            self.logger.info("cache expired for device %s", device_id)
+            expired = True
 
-        if response['ttl'] > int(time()):
-            return response['response']
+            if os.path.exists(LOCK_FILE):
+                self.logger.info("cache locked - will wait to rebuild %s", device_id)
+            else:
+                self.logger.info("cache unlocked - will rebuild %s", device_id)
+                newpid = os.fork()
+                if newpid == 0:
+                    self.rebuild_cache(device_id, command, command2)
+
+        if expired:
+            self.logger.info("returning expired cached device status %s", device_id)
         else:
-            return False
+            self.logger.info("returning unexpired cached device status %s", device_id)
+
+        return response['response']
+
 
     def clear_device_command_cache(self, device_id):
 
