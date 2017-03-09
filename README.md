@@ -5,6 +5,8 @@ Python library for controlling Insteon Hub locally. This allows you to send dire
 
 ## Changes
 
+0.48 2017-03-09 Fixes with caching and device ids [@phareous]
+
 0.47 2017-03-01 Caching and logging changes [@wardcraigj]
 
 0.46 2017-02-28 More file caching changes [@wardcraigj]

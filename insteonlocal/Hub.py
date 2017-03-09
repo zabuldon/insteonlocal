@@ -33,7 +33,7 @@ from insteonlocal.Fan import Fan
 # double tap scenes
 # switch on updates/broadcasts
 
-CACHE_TTL = 30 #30 seconds
+CACHE_TTL = 20 #seconds
 CACHE_FILE = '.state'
 LOCK_FILE = 'commands.lock'
 
@@ -1018,20 +1018,18 @@ class Hub(object):
                 return_record = response_record
                 return_record['error'] = False
                 return_record['success'] = True
+                if 'cmd1' in response_record and 'cmd2' in response_record:
+                    self.set_command_response_from_cache(response_record, device_from, response_record['cmd1'], response_record['cmd2'])
+                return return_record
 
             self.buffer_status['msgs'].append(response_record)
 
-            if 'cmd1' in response_record and 'cmd2' in response_record:
-                self.set_command_response_from_cache(response_record, device_from, response_record['cmd1'], response_record['cmd2'])
 
         # Tell hub to clear buffer
         self.clear_buffer()
 
         #pprint.pprint(self.buffer_status)
         self.logger.debug("get_buffer_status: %s", pprint.pformat(self.buffer_status))
-
-        if device_from:
-            return return_record
 
         return self.buffer_status
 
