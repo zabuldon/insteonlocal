@@ -47,9 +47,14 @@ except requests.exceptions.RequestException as e:
 #    print("Got name of " + modelInfo["name"])
 #pprint.pprint(modelInfo)
 
+# Outlet example
+outlet1 = hub.onoffoutlet('444444');
+outlet1.bottom_on();
+exit
+
 # Dimmer example
-dimmer1 = hub.dimmer('42902e')
-dimmer1.beep()
+#dimmer1 = hub.dimmer('42902e')
+#dimmer1.beep()
 #dimmer1.on(25)
 #dimmer1.status(0)
 #dimmer1.status(1)
@@ -87,19 +92,19 @@ dimmer1.beep()
 #time.sleep(1)
 #group2.off()
 
-switch1 = hub.switch('40565b')
+#switch1 = hub.switch('40565b')
 #switch1.on()
-switch1.beep()
+#switch1.beep()
 #switch1.beep()
 #switch1.beep()
 #switch1.off()
 #status = switch1.status()
 #pprint.pprint(status)
-switch1.on()
-status = switch1.status()
-print("new status\n")
-pprint.pprint(status)
-switch1.off()
+#switch1.on()
+#status = switch1.status()
+#print("new status\n")
+#pprint.pprint(status)
+#switch1.off()
 
 # switch join new group 03 - IN DEVeLOPMENT
 #group3 = hub.group("03")
