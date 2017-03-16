@@ -5,8 +5,8 @@ Python library for controlling Insteon Hub locally. This allows you to send dire
 
 ## Changes
 
-0.49 2016-03-16 Adds support for i2c2 checksums on extended msg, adds support for
-controlling on/off outlets (2663-222) [@phareous]
+0.49 2016-03-16 Adds support for i2c2 checksums on extended msg, adds 
+support for controlling on/off outlets (2663-222) [@phareous]
 
 0.48 2017-03-09 Fixes with caching and device ids [@phareous]
 
