@@ -305,6 +305,9 @@ class Hub(object):
         sleep(2)
 
         status = self.get_buffer_status(device_id)
+        if not status:
+            sleep(1)
+            status = self.get_buffer_status(device_id)
 
         return status
 
@@ -1047,10 +1050,11 @@ class Hub(object):
                 return_record['success'] = True
                 if 'cmd1' in response_record and 'cmd2' in response_record:
                     self.set_command_response_from_cache(response_record, device_from, response_record['cmd1'], response_record['cmd2'])
-                return return_record
 
             self.buffer_status['msgs'].append(response_record)
 
+        # Return last status from this device
+        return return_record
 
         # Tell hub to clear buffer
         self.clear_buffer()
