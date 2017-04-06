@@ -410,7 +410,7 @@ class Hub(object):
 
                 cache_loaded = True
                 break
-            except json.JSONDecodeError:
+            except ValueError:
                 self.logger.info("couldn't decode cachefile")
                 if attempts >= 3:
                     cache_loaded = True
