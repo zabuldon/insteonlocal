@@ -15,7 +15,9 @@ Include the log file, the list of device models and ID's, and your hub model
 
 ## Changes
 
-0.49 2016-03-16 Adds support for i2c2 checksums on extended msg, adds 
+0.50 2017-04-06 Fix cache error parsing [@wardcraigj]
+
+0.49 2017-03-16 Adds support for i2c2 checksums on extended msg, adds 
 support for controlling on/off outlets (2663-222) [@phareous]
 
 0.48 2017-03-09 Fixes with caching and device ids [@phareous]
