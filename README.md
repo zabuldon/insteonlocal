@@ -15,6 +15,8 @@ Include the log file, the list of device models and ID's, and your hub model
 
 ## Changes
 
+0.51 2017-04-08 Use system temp dir
+
 0.50 2017-04-06 Fix cache error parsing [@wardcraigj]
 
 0.49 2017-03-16 Adds support for i2c2 checksums on extended msg, adds 
