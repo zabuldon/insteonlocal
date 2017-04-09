@@ -8,6 +8,7 @@ from io import StringIO
 import pkg_resources
 import requests
 import os
+import tempfile
 from insteonlocal.Switch import Switch
 from insteonlocal.Group import Group
 from insteonlocal.Dimmer import Dimmer
@@ -67,6 +68,8 @@ class Hub(object):
             self.logger = logger
 
         self.logger.info("Hub object initialized")
+        temp_dir = tempfile.gettempdir()
+        os.chdir(temp_dir)
 
 
 
