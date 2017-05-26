@@ -73,6 +73,7 @@
   "01:3E": { "sku": "2446-522",    "key": "",       "name": "Insteon Ballast Dimmer (921 MHz)" },
   "01:3F": { "sku": "2447-422",    "key": "",       "name": "Insteon Fixture Dimmer (869 MHz)" },
   "01:40": { "sku": "2447-522",    "key": "",       "name": "Insteon Fixture Dimmer (921 MHz)" },
+  "01:41": { "sku": "2334-222",    "key": "",       "name": "Keypad Dimmer Dual-Band, 8 Button" },
   "01:42": { "sku": "2334-232",    "key": "",       "name": "Keypad Dimmer Dual-Band, 6 Button" },
 
   "01:49": { "sku": "2674-222",    "key": "",       "name": "LED Bulb PAR38 US/Can - Screw-in Base" },
