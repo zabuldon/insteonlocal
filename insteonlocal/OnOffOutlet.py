@@ -21,7 +21,7 @@ class OnOffOutlet():
         self.logger = hub.logger
 
 
-    def status(self, return_led=0):
+    def status(self, return_led=1):
         """Get status from device"""
         status = self.hub.get_device_status(self.device_id, return_led)
         self.logger.info("Dimmer %s status: %s", self.device_id,
