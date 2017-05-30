@@ -277,10 +277,13 @@ class Hub(object):
         return linked_devices
 
 
-    def get_device_category(self, cat):
+    def get_device_category(self, cat, subcat=None):
         """Return the device category and name given the category id"""
         if cat in self.device_categories:
-            return self.device_categories[cat]
+            if not subcat:
+                return self.device_categories[cat]
+            elif cat == '02' and subcat in ('08', '39'):
+                return self.device_categories['FE']
         else:
             return False
 
