@@ -187,7 +187,7 @@ class Hub(object):
                     dev_info = self.id_request(device_id)
                     dev_cat = dev_info.get('id_high', '')
                     dev_sub_cat = dev_info.get('id_mid', '')
-                    dev_cat_record = self.get_device_category(dev_cat)
+                    dev_cat_record = self.get_device_category(dev_cat, dev_sub_cat)
                     if dev_cat_record and 'name' in dev_cat_record:
                         dev_cat_name = dev_cat_record['name']
                         dev_cat_type = dev_cat_record['type']
@@ -238,7 +238,7 @@ class Hub(object):
                         dev_info = self.id_request(device_id)
                         dev_cat = dev_info.get('id_high', '')
                         dev_sub_cat = dev_info.get('id_mid', '')
-                        dev_cat_record = self.get_device_category(dev_cat)
+                        dev_cat_record = self.get_device_category(dev_cat, sub_cat)
                         if dev_cat_record and 'name' in dev_cat_record:
                             dev_cat_name = dev_cat_record['name']
                             dev_cat_type = dev_cat_record['type']
